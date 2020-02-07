@@ -5,16 +5,9 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	"github.com/oclaussen/dodo/pkg/stage"
-	"github.com/oclaussen/dodo/pkg/types"
 )
 
 func (c *Container) create(image string) (string, error) {
-	opts, err := c.stage.GetDockerOptions()
-	if err != nil {
-		return "", err
-	}
-
 	entrypoint, command := c.dockerEntrypoint()
 	response, err := c.client.ContainerCreate(
 		c.context,
@@ -26,7 +19,7 @@ func (c *Container) create(image string) (string, error) {
 			Tty:          hasTTY() && !c.daemon,
 			OpenStdin:    !c.daemon,
 			StdinOnce:    !c.daemon,
-			Env:          c.dockerEnvironment(opts),
+			Env:          c.config.Environment.Strings(),
 			Cmd:          command,
 			Image:        image,
 			WorkingDir:   c.config.WorkingDir,
@@ -60,16 +53,11 @@ func (c *Container) create(image string) (string, error) {
 	}
 
 	if len(c.config.Script) > 0 {
-		if err = c.uploadEntrypoint(response.ID); err != nil {
+		if err := c.UploadFile(response.ID, "entrypoint", []byte(c.config.Script+"\n")); err != nil {
 			return "", err
 		}
 	}
 
-	if c.config.ForwardStage {
-		if err = c.uploadStageConfig(response.ID, opts); err != nil {
-			return "", err
-		}
-	}
 	return response.ID, nil
 }
 
@@ -87,18 +75,6 @@ func (c *Container) dockerEntrypoint() ([]string, []string) {
 	}
 
 	return entrypoint, command
-}
-
-func (c *Container) dockerEnvironment(opts *stage.DockerOptions) []string {
-	env := c.config.Environment
-	if c.config.ForwardStage {
-		yes := "1"
-		env = append(env, types.KeyValue{"DOCKER_HOST", &opts.Host})
-		env = append(env, types.KeyValue{"DOCKER_API_VERSION", &opts.Version})
-		env = append(env, types.KeyValue{"DOCKER_CERT_PATH", &c.tmpPath})
-		env = append(env, types.KeyValue{"DOCKER_TLS_VERIFY", &yes})
-	}
-	return env.Strings()
 }
 
 func (c *Container) dockerRestartPolicy() container.RestartPolicy {

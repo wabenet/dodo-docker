@@ -9,24 +9,27 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/term"
 	"github.com/oclaussen/dodo/pkg/image"
-	"github.com/oclaussen/dodo/pkg/stage"
 	"github.com/oclaussen/dodo/pkg/types"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+)
+
+const (
+	DefaultAPIVersion = "1.39"
 )
 
 type Container struct {
 	name        string
 	daemon      bool
 	config      *types.Backdrop
-	stage       stage.Stage
 	client      *client.Client
 	context     context.Context
 	tmpPath     string
 	authConfigs map[string]dockerapi.AuthConfig
 }
 
-func NewContainer(config *types.Backdrop, s stage.Stage, authConfigs map[string]dockerapi.AuthConfig, daemon bool) (*Container, error) {
-	dockerClient, err := stage.GetDockerClient(s)
+func NewContainer(config *types.Backdrop, authConfigs map[string]dockerapi.AuthConfig, daemon bool) (*Container, error) {
+	dockerClient, err := getDockerClient()
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +45,6 @@ func NewContainer(config *types.Backdrop, s stage.Stage, authConfigs map[string]
 		name:        name,
 		daemon:      daemon,
 		config:      config,
-		stage:       s,
 		client:      dockerClient,
 		context:     context.Background(),
 		tmpPath:     fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20]),
@@ -108,4 +110,21 @@ func hasTTY() bool {
 	_, inTerm := term.GetFdInfo(os.Stdin)
 	_, outTerm := term.GetFdInfo(os.Stdout)
 	return inTerm && outTerm
+}
+
+func getDockerClient() (*client.Client, error) {
+	opts := &configuration.ClientOptions{}
+	mutators := []client.Opt{}
+	if len(opts.Version) > 0 {
+		mutators = append(mutators, client.WithVersion(opts.Version))
+	} else {
+		mutators = append(mutators, client.WithVersion(DefaultAPIVersion))
+	}
+	if len(opts.Host) > 0 {
+		mutators = append(mutators, client.WithHost(opts.Host))
+	}
+	if len(opts.CAFile)+len(opts.CertFile)+len(opts.KeyFile) > 0 {
+		mutators = append(mutators, client.WithTLSClientConfig(opts.CAFile, opts.CertFile, opts.KeyFile))
+	}
+	return client.NewClientWithOpts(mutators...)
 }
