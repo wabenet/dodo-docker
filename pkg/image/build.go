@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/containerd/console"
 	"github.com/docker/docker/api/types"
@@ -23,14 +22,14 @@ import (
 )
 
 func (image *Image) Get() (string, error) {
-	if image.config.ForceRebuild || len(image.config.Name) == 0 {
+	if image.config.ForceRebuild || len(image.config.ImageName) == 0 {
 		return image.Build()
 	}
 
 	imgs, err := image.client.ImageList(
 		context.Background(),
 		types.ImageListOptions{
-			Filters: filters.NewArgs(filters.Arg("reference", image.config.Name)),
+			Filters: filters.NewArgs(filters.Arg("reference", image.config.ImageName)),
 		},
 	)
 	if err != nil || len(imgs) == 0 {
@@ -41,7 +40,7 @@ func (image *Image) Get() (string, error) {
 }
 
 func (image *Image) Build() (string, error) {
-	for _, name := range image.config.Requires {
+	for _, name := range image.config.Dependencies {
 		// TODO: refactor here, the dependency on config is uncomfortable
 		conf, err := config.LoadImage(name)
 		if err != nil {
@@ -114,18 +113,13 @@ func (image *Image) Build() (string, error) {
 
 func (image *Image) runBuild(contextData *contextData, displayCh chan *client.SolveStatus) (string, error) {
 	args := map[string]*string{}
-	for _, arg := range image.config.Args.Strings() {
-		switch values := strings.SplitN(arg, "=", 2); len(values) {
-		case 1:
-			args[values[0]] = nil
-		case 2:
-			args[values[0]] = &values[1]
-		}
+	for _, arg := range image.config.Arguments {
+		args[arg.Key] = &arg.Value
 	}
 
 	var tags []string
-	if image.config.Name != "" {
-		tags = append(tags, image.config.Name)
+	if image.config.ImageName != "" {
+		tags = append(tags, image.config.ImageName)
 	}
 
 	response, err := image.client.ImageBuild(

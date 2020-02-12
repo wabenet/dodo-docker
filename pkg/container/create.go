@@ -1,10 +1,12 @@
 package container
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/go-connections/nat"
 )
 
 func (c *Container) create(image string) (string, error) {
@@ -19,26 +21,19 @@ func (c *Container) create(image string) (string, error) {
 			Tty:          hasTTY() && !c.daemon,
 			OpenStdin:    !c.daemon,
 			StdinOnce:    !c.daemon,
-			Env:          c.config.Environment.Strings(),
+			Env:          c.dockerEnvironment(),
 			Cmd:          command,
 			Image:        image,
 			WorkingDir:   c.config.WorkingDir,
 			Entrypoint:   entrypoint,
-			ExposedPorts: c.config.Ports.PortSet(),
+			ExposedPorts: c.dockerPortSet(),
 		},
 		&container.HostConfig{
 			AutoRemove: func() bool {
-				if c.daemon {
-					return false
-				}
-				if c.config.Remove == nil {
-					return true
-				}
-				return *c.config.Remove
+				return !c.daemon
 			}(),
-			Binds:         c.config.Volumes.Strings(),
-			VolumesFrom:   c.config.VolumesFrom,
-			PortBindings:  c.config.Ports.PortMap(),
+			Binds:         c.dockerVolumes(),
+			PortBindings:  c.dockerPortMap(),
 			RestartPolicy: c.dockerRestartPolicy(),
 			Resources: container.Resources{
 				Devices:           c.dockerDevices(),
@@ -52,8 +47,8 @@ func (c *Container) create(image string) (string, error) {
 		return "", err
 	}
 
-	if len(c.config.Script) > 0 {
-		if err := c.UploadFile(response.ID, "entrypoint", []byte(c.config.Script+"\n")); err != nil {
+	if len(c.config.Entrypoint.Script) > 0 {
+		if err := c.UploadFile(response.ID, "entrypoint", []byte(c.config.Entrypoint.Script+"\n")); err != nil {
 			return "", err
 		}
 	}
@@ -63,14 +58,14 @@ func (c *Container) create(image string) (string, error) {
 
 func (c *Container) dockerEntrypoint() ([]string, []string) {
 	entrypoint := []string{"/bin/sh"}
-	command := c.config.Command
+	command := c.config.Entrypoint.Arguments
 
-	if c.config.Interpreter != nil {
-		entrypoint = c.config.Interpreter
+	if c.config.Entrypoint.Interpreter != nil {
+		entrypoint = c.config.Entrypoint.Interpreter
 	}
-	if c.config.Interactive {
+	if c.config.Entrypoint.Interactive {
 		command = nil
-	} else if len(c.config.Script) > 0 {
+	} else if len(c.config.Entrypoint.Script) > 0 {
 		entrypoint = append(entrypoint, path.Join(c.tmpPath, "entrypoint"))
 	}
 
@@ -106,6 +101,50 @@ func (c *Container) dockerDeviceCgroupRules() []string {
 		if len(device.CgroupRule) > 0 {
 			result = append(result, device.CgroupRule)
 		}
+	}
+	return result
+}
+
+func (c *Container) dockerPortMap() nat.PortMap {
+	result := map[nat.Port][]nat.PortBinding{}
+	for _, port := range c.config.Ports {
+		portSpec, _ := nat.NewPort(port.Protocol, port.Target)
+		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.Published})
+	}
+	return result
+}
+
+func (c *Container) dockerPortSet() nat.PortSet {
+	result := map[nat.Port]struct{}{}
+	for _, port := range c.config.Ports {
+		portSpec, _ := nat.NewPort(port.Protocol, port.Target)
+		result[portSpec] = struct{}{}
+	}
+	return result
+}
+
+func (c *Container) dockerEnvironment() []string {
+	result := []string{}
+	for _, kv := range c.config.Environment {
+		result = append(result, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
+	}
+	return result
+}
+
+func (c *Container) dockerVolumes() []string {
+	result := []string{}
+	for _, v := range c.config.Volumes {
+		var volumeString string
+
+		if v.Target == "" && !v.Readonly {
+			volumeString = fmt.Sprintf("%s:%s", v.Source, v.Source)
+		} else if !v.Readonly {
+			volumeString = fmt.Sprintf("%s:%s", v.Source, v.Target)
+		} else {
+			volumeString = fmt.Sprintf("%s:%s:ro", v.Source, v.Target)
+		}
+
+		result = append(result, volumeString)
 	}
 	return result
 }

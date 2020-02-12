@@ -34,14 +34,10 @@ func (c *Container) run(containerID string, tty bool) error {
 	streamErrorChannel := make(chan error, 1)
 	go streamContainer(c.context, streamErrorChannel, attach, tty)
 
-	condition := container.WaitConditionNextExit
-	if c.config.Remove == nil || *c.config.Remove == true {
-		condition = container.WaitConditionRemoved
-	}
 	waitChannel, waitErrorChannel := c.client.ContainerWait(
 		c.context,
 		containerID,
-		condition,
+		container.WaitConditionRemoved,
 	)
 
 	err = c.client.ContainerStart(

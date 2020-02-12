@@ -9,8 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/docker/docker/pkg/urlutil"
+	buildkit "github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth/authprovider"
 	"github.com/moby/buildkit/session/filesync"
+	"github.com/moby/buildkit/session/secrets/secretsprovider"
+	"github.com/moby/buildkit/session/sshforward/sshprovider"
 	"github.com/oclaussen/dodo/pkg/types"
 	"github.com/pkg/errors"
 	fstypes "github.com/tonistiigi/fsutil/types"
@@ -41,7 +44,7 @@ func (data *contextData) cleanup() {
 	}
 }
 
-func prepareContext(config *types.Image, session session) (*contextData, error) {
+func prepareContext(config *types.BuildInfo, session session) (*contextData, error) {
 	data := contextData{
 		remote:         "",
 		dockerfileName: config.Dockerfile,
@@ -76,9 +79,9 @@ func prepareContext(config *types.Image, session session) (*contextData, error) 
 		return nil, errors.Errorf("Context directory does not exist: %v", config.Context)
 	}
 
-	if len(config.Steps) > 0 {
+	if len(config.InlineDockerfile) > 0 {
 		steps := ""
-		for _, step := range config.Steps {
+		for _, step := range config.InlineDockerfile {
 			steps = steps + step + "\n"
 		}
 
@@ -108,14 +111,14 @@ func prepareContext(config *types.Image, session session) (*contextData, error) 
 			Dir:  dockerfileDir,
 		})
 
-	} else if config.Name != "" && data.remote == clientSession {
+	} else if config.ImageName != "" && data.remote == clientSession {
 		dir, err := data.tempdir()
 		if err != nil {
 			data.cleanup()
 			return nil, err
 		}
 		tempfile := filepath.Join(dir, "Dockerfile")
-		if err := writeDockerfile(tempfile, fmt.Sprintf("FROM %s", config.Name)); err != nil {
+		if err := writeDockerfile(tempfile, fmt.Sprintf("FROM %s", config.ImageName)); err != nil {
 			data.cleanup()
 			return nil, err
 		}
@@ -134,14 +137,14 @@ func prepareContext(config *types.Image, session session) (*contextData, error) 
 
 	session.Allow(authprovider.NewDockerAuthProvider())
 	if len(config.Secrets) > 0 {
-		provider, err := config.Secrets.SecretsProvider()
+		provider, err := secretsProvider(config)
 		if err != nil {
 			return nil, err
 		}
 		session.Allow(provider)
 	}
-	if len(config.SSHAgents) > 0 {
-		provider, err := config.SSHAgents.SSHAgentProvider()
+	if len(config.SshAgents) > 0 {
+		provider, err := sshAgentProvider(config)
 		if err != nil {
 			return nil, err
 		}
@@ -170,4 +173,32 @@ func writeDockerfile(path string, content string) error {
 	}
 
 	return nil
+}
+
+func secretsProvider(config *types.BuildInfo) (buildkit.Attachable, error) {
+	sources := make([]secretsprovider.FileSource, 0, len(config.Secrets))
+	for _, secret := range config.Secrets {
+		source := secretsprovider.FileSource{
+			ID:       secret.Id,
+			FilePath: secret.Path,
+		}
+		sources = append(sources, source)
+	}
+	store, err := secretsprovider.NewFileStore(sources)
+	if err != nil {
+		return nil, err
+	}
+	return secretsprovider.NewSecretProvider(store), nil
+}
+
+func sshAgentProvider(config *types.BuildInfo) (buildkit.Attachable, error) {
+	configs := make([]sshprovider.AgentConfig, 0, len(config.SshAgents))
+	for _, agent := range config.SshAgents {
+		config := sshprovider.AgentConfig{
+			ID:    agent.Id,
+			Paths: []string{agent.IdentityFile},
+		}
+		configs = append(configs, config)
+	}
+	return sshprovider.NewSSHAgentProvider(configs)
 }

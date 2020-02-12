@@ -17,7 +17,7 @@ var (
 
 // Image represents the data necessary to build a docker image
 type Image struct {
-	config      *dodotypes.Image
+	config      *dodotypes.BuildInfo
 	client      Client
 	authConfigs map[string]types.AuthConfig
 	session     session
@@ -31,7 +31,7 @@ type Client interface {
 }
 
 // NewImage initializes and validates a new Image object
-func NewImage(client Client, authConfigs map[string]types.AuthConfig, config *dodotypes.Image) (*Image, error) {
+func NewImage(client Client, authConfigs map[string]types.AuthConfig, config *dodotypes.BuildInfo) (*Image, error) {
 	if client == nil {
 		return nil, errors.New("client may not be nil")
 	}

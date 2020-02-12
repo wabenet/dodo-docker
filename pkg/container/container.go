@@ -53,9 +53,9 @@ func NewContainer(config *types.Backdrop, authConfigs map[string]dockerapi.AuthC
 }
 
 func (c *Container) Build() error {
-	c.config.Image.ForceRebuild = true
+	c.config.Build.ForceRebuild = true
 
-	img, err := image.NewImage(c.client, c.authConfigs, c.config.Image)
+	img, err := image.NewImage(c.client, c.authConfigs, c.config.Build)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (c *Container) Build() error {
 }
 
 func (c *Container) Run() error {
-	img, err := image.NewImage(c.client, c.authConfigs, c.config.Image)
+	img, err := image.NewImage(c.client, c.authConfigs, c.config.Build)
 	if err != nil {
 		return err
 	}
