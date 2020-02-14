@@ -8,7 +8,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/term"
-	"github.com/oclaussen/dodo/pkg/image"
 	"github.com/oclaussen/dodo/pkg/types"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -52,33 +51,13 @@ func NewContainer(config *types.Backdrop, authConfigs map[string]dockerapi.AuthC
 	}, nil
 }
 
-func (c *Container) Build() error {
-	c.config.Build.ForceRebuild = true
-
-	img, err := image.NewImage(c.client, c.authConfigs, c.config.Build)
-	if err != nil {
-		return err
-	}
-
-	if _, err := img.Get(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (c *Container) Run() error {
-	img, err := image.NewImage(c.client, c.authConfigs, c.config.Build)
+	imageId, err := c.GetImage()
 	if err != nil {
 		return err
 	}
 
-	imageID, err := img.Get()
-	if err != nil {
-		return err
-	}
-
-	containerID, err := c.create(imageID)
+	containerID, err := c.create(imageId)
 	if err != nil {
 		return err
 	}
