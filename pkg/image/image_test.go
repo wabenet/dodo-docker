@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func fakeImage(t *testing.T, config *dodotypes.Image) *Image {
+func fakeImage(t *testing.T, config *dodotypes.BuildInfo) *Image {
 	return &Image{
 		client:  &fakeImageClient{t: t, willBuildAs: "NewImageID"},
 		config:  config,

@@ -11,7 +11,7 @@ import (
 func TestBuildImage(t *testing.T) {
 	displayCh := make(chan *client.SolveStatus)
 	defer close(displayCh)
-	image := fakeImage(t, &types.Image{
+	image := fakeImage(t, &types.BuildInfo{
 		Context: "./test",
 	})
 	result, err := image.runBuild(&contextData{
@@ -25,8 +25,8 @@ func TestBuildImage(t *testing.T) {
 func TestBuildInlineImage(t *testing.T) {
 	displayCh := make(chan *client.SolveStatus)
 	defer close(displayCh)
-	image := fakeImage(t, &types.Image{
-		Steps: []string{"FROM scratch"},
+	image := fakeImage(t, &types.BuildInfo{
+		InlineDockerfile: []string{"FROM scratch"},
 	})
 	result, err := image.runBuild(&contextData{
 		remote:         "client-session",
