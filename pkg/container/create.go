@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/oclaussen/dodo/pkg/plugin"
 )
 
 func (c *Container) create(image string) (string, error) {
@@ -49,6 +50,12 @@ func (c *Container) create(image string) (string, error) {
 
 	if len(c.config.Entrypoint.Script) > 0 {
 		if err := c.UploadFile(response.ID, "entrypoint", []byte(c.config.Entrypoint.Script+"\n")); err != nil {
+			return "", err
+		}
+	}
+
+	for _, pluginConfig := range plugin.GetConfigurations() {
+		if err := pluginConfig.Provision(response.ID); err != nil {
 			return "", err
 		}
 	}
