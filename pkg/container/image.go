@@ -9,23 +9,19 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/registry"
 	"golang.org/x/net/context"
 )
 
 func (c *Container) GetImage() (string, error) {
-	filter := filters.NewArgs(filters.Arg("reference", c.config.ImageId))
-	images, err := c.client.ImageList(
-		context.Background(),
-		types.ImageListOptions{Filters: filter},
-	)
+	ref, err := reference.ParseAnyReference(c.config.ImageId)
 	if err != nil {
 		return "", err
 	}
-	if len(images) > 0 {
-		return images[0].ID, nil
+
+	if _, _, err := c.client.ImageInspectWithRaw(context.Background(), ref.String()); err == nil {
+		return ref.String(), nil
 	}
 
 	parsed, err := reference.ParseNormalizedNamed(c.config.ImageId)
