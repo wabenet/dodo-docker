@@ -9,8 +9,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/term"
+	"github.com/oclaussen/dodo/pkg/configuration"
 	"github.com/oclaussen/dodo/pkg/plugin"
-	"github.com/oclaussen/dodo/pkg/plugin/configuration"
 	"github.com/oclaussen/dodo/pkg/types"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -20,17 +20,25 @@ const (
 	DefaultAPIVersion = "1.39"
 )
 
-type Container struct {
-	name        string
-	daemon      bool
-	config      *types.Backdrop
-	client      *client.Client
-	context     context.Context
-	tmpPath     string
-	authConfigs map[string]dockerapi.AuthConfig
+type ScriptError struct {
+	Message  string
+	ExitCode int
 }
 
-func NewContainer(config *types.Backdrop, authConfigs map[string]dockerapi.AuthConfig, daemon bool) (*Container, error) {
+func (e *ScriptError) Error() string {
+	return e.Message
+}
+
+type Container struct {
+	name    string
+	daemon  bool
+	config  *types.Backdrop
+	client  *client.Client
+	context context.Context
+	tmpPath string
+}
+
+func NewContainer(config *types.Backdrop, daemon bool) (*Container, error) {
 	dockerClient, err := getDockerClient(config.Name)
 	if err != nil {
 		return nil, err
@@ -44,25 +52,29 @@ func NewContainer(config *types.Backdrop, authConfigs map[string]dockerapi.AuthC
 	}
 
 	return &Container{
-		name:        name,
-		daemon:      daemon,
-		config:      config,
-		client:      dockerClient,
-		context:     context.Background(),
-		tmpPath:     fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20]),
-		authConfigs: authConfigs,
+		name:    name,
+		daemon:  daemon,
+		config:  config,
+		client:  dockerClient,
+		context: context.Background(),
+		tmpPath: fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20]),
 	}, nil
 }
 
 func (c *Container) Run() error {
-	for _, pluginConfig := range plugin.GetConfigurations() {
-		conf, err := pluginConfig.UpdateConfiguration(c.config)
+	plugins := plugin.LoadPlugins(configuration.PluginType)
+	defer plugins.UnloadPlugins()
+
+	for _, p := range plugins.Plugins {
+		conf, err := p.(configuration.Configuration).UpdateConfiguration(c.config)
 		if err != nil {
 			log.Warn(err)
 			continue
 		}
 		c.config = conf
 	}
+
+	log.WithFields(log.Fields{"backdrop": c.config}).Debug("assembled configuration")
 
 	imageId, err := c.GetImage()
 	if err != nil {
@@ -116,8 +128,11 @@ func getDockerClient(name string) (*client.Client, error) {
 		opts.KeyFile = filepath.Join(certPath, "key.pem")
 	}
 
-	for _, pluginConfig := range plugin.GetConfigurations() {
-		o, err := pluginConfig.GetClientOptions(name)
+	plugins := plugin.LoadPlugins(configuration.PluginType)
+	defer plugins.UnloadPlugins()
+
+	for _, p := range plugins.Plugins {
+		o, err := p.(configuration.Configuration).GetClientOptions(name)
 		if err != nil {
 			log.Warn(err)
 			continue

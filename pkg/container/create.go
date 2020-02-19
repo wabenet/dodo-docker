@@ -7,7 +7,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/oclaussen/dodo/pkg/configuration"
 	"github.com/oclaussen/dodo/pkg/plugin"
+	log "github.com/sirupsen/logrus"
 )
 
 func (c *Container) create(image string) (string, error) {
@@ -54,9 +56,13 @@ func (c *Container) create(image string) (string, error) {
 		}
 	}
 
-	for _, pluginConfig := range plugin.GetConfigurations() {
-		if err := pluginConfig.Provision(response.ID); err != nil {
-			return "", err
+	plugins := plugin.LoadPlugins(configuration.PluginType)
+	defer plugins.UnloadPlugins()
+
+	for _, p := range plugins.Plugins {
+		err := p.(configuration.Configuration).Provision(image)
+		if err != nil {
+			log.Warn(err)
 		}
 	}
 

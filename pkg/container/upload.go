@@ -8,13 +8,13 @@ import (
 	dockerapi "github.com/docker/docker/api/types"
 )
 
-func (container *Container) UploadFile(containerID string, name string, contents []byte) error {
+func (c *Container) UploadFile(containerID string, name string, contents []byte) error {
 	reader, writer := io.Pipe()
 	defer reader.Close()
 	defer writer.Close()
 
-	go container.client.CopyToContainer(
-		container.context,
+	go c.client.CopyToContainer(
+		c.context,
 		containerID,
 		"/",
 		reader,
@@ -25,7 +25,7 @@ func (container *Container) UploadFile(containerID string, name string, contents
 	defer tarWriter.Close()
 
 	err := tarWriter.WriteHeader(&tar.Header{
-		Name: path.Join(container.tmpPath, name),
+		Name: path.Join(c.tmpPath, name),
 		Mode: 0644,
 		Size: int64(len(contents)),
 	})

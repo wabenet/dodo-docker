@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/pkg/term"
-	dodotypes "github.com/oclaussen/dodo/pkg/types"
 	"golang.org/x/net/context"
 )
 
@@ -67,7 +66,7 @@ func (c *Container) run(containerID string, tty bool) error {
 	select {
 	case response := <-waitChannel:
 		if response.StatusCode != 0 {
-			scriptError := &dodotypes.ScriptError{ExitCode: int(response.StatusCode)}
+			scriptError := &ScriptError{ExitCode: int(response.StatusCode)}
 			if response.Error != nil {
 				scriptError.Message = response.Error.Message
 			}

@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/registry"
+	"github.com/oclaussen/go-gimme/configfiles"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 )
 
@@ -47,7 +50,8 @@ func (c *Container) GetImage() (string, error) {
 		}
 	}
 
-	buf, err := json.Marshal(c.authConfigs[configKey])
+	authConfigs := loadAuthConfig()
+	buf, err := json.Marshal(authConfigs[configKey])
 	if err != nil {
 		return "", err
 	}
@@ -71,7 +75,7 @@ func (c *Container) GetImage() (string, error) {
 	return parsed.String(), nil
 }
 
-func streamPull(result io.ReadCloser) error {
+func streamPull(result io.Reader) error {
 	decoder := json.NewDecoder(result)
 
 	for {
@@ -99,4 +103,63 @@ func streamPull(result io.ReadCloser) error {
 	}
 
 	return nil
+}
+
+func loadAuthConfig() map[string]types.AuthConfig {
+	var authConfigs map[string]types.AuthConfig
+
+	configFile, err := configfiles.GimmeConfigFiles(&configfiles.Options{
+		Name:       "docker",
+		Extensions: []string{"json"},
+		Filter: func(configFile *configfiles.ConfigFile) bool {
+			var config map[string]*json.RawMessage
+			err := json.Unmarshal(configFile.Content, &config)
+			return err == nil && config["auths"] != nil
+		},
+	})
+	if err != nil {
+		return authConfigs
+	}
+
+	var config map[string]*json.RawMessage
+	if err = json.Unmarshal(configFile.Content, &config); err != nil || config["auths"] == nil {
+		return authConfigs
+	}
+	if err = json.Unmarshal(*config["auths"], &authConfigs); err != nil {
+		return authConfigs
+	}
+
+	for addr, ac := range authConfigs {
+		ac.Username, ac.Password, err = decodeAuth(ac.Auth)
+		if err == nil {
+			ac.Auth = ""
+			ac.ServerAddress = addr
+			authConfigs[addr] = ac
+		}
+	}
+
+	return authConfigs
+}
+
+func decodeAuth(authStr string) (string, string, error) {
+	if authStr == "" {
+		return "", "", nil
+	}
+
+	decLen := base64.StdEncoding.DecodedLen(len(authStr))
+	decoded := make([]byte, decLen)
+	authByte := []byte(authStr)
+	n, err := base64.StdEncoding.Decode(decoded, authByte)
+	if err != nil {
+		return "", "", err
+	}
+	if n > decLen {
+		return "", "", errors.New("something went wrong decoding auth config")
+	}
+	arr := strings.SplitN(string(decoded), ":", 2)
+	if len(arr) != 2 {
+		return "", "", errors.New("invalid auth configuration file")
+	}
+	password := strings.Trim(arr[1], "\x00")
+	return arr[0], password, nil
 }
