@@ -62,10 +62,7 @@ func NewContainer(config *types.Backdrop, daemon bool) (*Container, error) {
 }
 
 func (c *Container) Run() error {
-	plugins := plugin.LoadPlugins(configuration.PluginType)
-	defer plugins.UnloadPlugins()
-
-	for _, p := range plugins.Plugins {
+	for _, p := range plugin.GetPlugins(configuration.PluginType) {
 		conf, err := p.(configuration.Configuration).UpdateConfiguration(c.config)
 		if err != nil {
 			log.Warn(err)
@@ -128,10 +125,7 @@ func getDockerClient(name string) (*client.Client, error) {
 		opts.KeyFile = filepath.Join(certPath, "key.pem")
 	}
 
-	plugins := plugin.LoadPlugins(configuration.PluginType)
-	defer plugins.UnloadPlugins()
-
-	for _, p := range plugins.Plugins {
+	for _, p := range plugin.GetPlugins(configuration.PluginType) {
 		o, err := p.(configuration.Configuration).GetClientOptions(name)
 		if err != nil {
 			log.Warn(err)

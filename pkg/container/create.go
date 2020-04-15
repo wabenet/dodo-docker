@@ -56,10 +56,7 @@ func (c *Container) create(image string) (string, error) {
 		}
 	}
 
-	plugins := plugin.LoadPlugins(configuration.PluginType)
-	defer plugins.UnloadPlugins()
-
-	for _, p := range plugins.Plugins {
+	for _, p := range plugin.GetPlugins(configuration.PluginType) {
 		err := p.(configuration.Configuration).Provision(image)
 		if err != nil {
 			log.Warn(err)
