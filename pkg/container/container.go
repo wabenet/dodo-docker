@@ -38,30 +38,17 @@ type Container struct {
 	tmpPath string
 }
 
-func NewContainer(config *types.Backdrop, daemon bool) (*Container, error) {
-	dockerClient, err := getDockerClient(config.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	name := config.ContainerName
-	if daemon {
-		name = config.Name
-	} else if len(name) == 0 {
-		name = fmt.Sprintf("%s-%s", config.Name, stringid.GenerateRandomID()[:8])
-	}
-
-	return &Container{
-		name:    name,
-		daemon:  daemon,
-		config:  config,
-		client:  dockerClient,
+func NewContainer(overrides *types.Backdrop, daemon bool) (*Container, error) {
+	c := &Container{
+		daemon: daemon,
+		config: &types.Backdrop{
+			Name:       overrides.Name,
+			Entrypoint: &types.Entrypoint{},
+		},
 		context: context.Background(),
 		tmpPath: fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20]),
-	}, nil
-}
+	}
 
-func (c *Container) Run() error {
 	for _, p := range plugin.GetPlugins(configuration.PluginType) {
 		conf, err := p.(configuration.Configuration).UpdateConfiguration(c.config)
 		if err != nil {
@@ -70,9 +57,27 @@ func (c *Container) Run() error {
 		}
 		c.config = conf
 	}
+	c.config.Merge(overrides)
 
 	log.WithFields(log.Fields{"backdrop": c.config}).Debug("assembled configuration")
 
+	dockerClient, err := getDockerClient(c.config.Name)
+	if err != nil {
+		return nil, err
+	}
+	c.client = dockerClient
+
+	c.name = c.config.ContainerName
+	if c.daemon {
+		c.name = c.config.Name
+	} else if len(c.name) == 0 {
+		c.name = fmt.Sprintf("%s-%s", c.config.Name, stringid.GenerateRandomID()[:8])
+	}
+
+	return c, nil
+}
+
+func (c *Container) Run() error {
 	imageId, err := c.GetImage()
 	if err != nil {
 		return err
