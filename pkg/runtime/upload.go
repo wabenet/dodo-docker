@@ -1,20 +1,20 @@
-package container
+package runtime
 
 import (
 	"archive/tar"
 	"io"
-	"path"
 
 	dockerapi "github.com/docker/docker/api/types"
+	"golang.org/x/net/context"
 )
 
-func (c *Container) UploadFile(containerID string, name string, contents []byte) error {
+func (c *ContainerRuntime) UploadFile(containerID string, path string, contents []byte) error {
 	reader, writer := io.Pipe()
 	defer reader.Close()
 	defer writer.Close()
 
 	go c.client.CopyToContainer(
-		c.context,
+		context.Background(),
 		containerID,
 		"/",
 		reader,
@@ -24,8 +24,8 @@ func (c *Container) UploadFile(containerID string, name string, contents []byte)
 	tarWriter := tar.NewWriter(writer)
 	defer tarWriter.Close()
 
-	err := tarWriter.WriteHeader(&tar.Header{
-		Name: path.Join(c.tmpPath, name),
+        err := tarWriter.WriteHeader(&tar.Header{
+		Name: path,
 		Mode: 0644,
 		Size: int64(len(contents)),
 	})

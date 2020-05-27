@@ -1,4 +1,4 @@
-package container
+package runtime
 
 import (
 	"encoding/base64"
@@ -17,8 +17,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (c *Container) GetImage() (string, error) {
-	ref, err := reference.ParseAnyReference(c.config.ImageId)
+func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
+	ref, err := reference.ParseAnyReference(name)
 	if err != nil {
 		return "", err
 	}
@@ -27,7 +27,7 @@ func (c *Container) GetImage() (string, error) {
 		return ref.String(), nil
 	}
 
-	parsed, err := reference.ParseNormalizedNamed(c.config.ImageId)
+	parsed, err := reference.ParseNormalizedNamed(name)
 	if err != nil {
 		return "", err
 	}
