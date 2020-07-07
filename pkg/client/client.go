@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/docker/docker/client"
-	"github.com/oclaussen/dodo/pkg/configuration"
 )
 
 const (
@@ -13,31 +12,23 @@ const (
 )
 
 func GetDockerClient() (*client.Client, error) {
-	opts := &configuration.ClientOptions{
-		Host: os.Getenv("DOCKER_HOST"),
-	}
-	if version := os.Getenv("DOCKER_API_VERSION"); len(version) > 0 {
-		opts.Version = version
-	}
-	if certPath := os.Getenv("DOCKER_CERT_PATH"); len(certPath) > 0 {
-		opts.CAFile = filepath.Join(certPath, "ca.pem")
-		opts.CertFile = filepath.Join(certPath, "cert.pem")
-		opts.KeyFile = filepath.Join(certPath, "key.pem")
-	}
+	host := os.Getenv("DOCKER_HOST")
+	version := os.Getenv("DOCKER_API_VERSION")
+	certPath := os.Getenv("DOCKER_CERT_PATH")
 
-        // TODO: let plugins update the options
+	// TODO: let plugins update the options
 
 	mutators := []client.Opt{}
-	if len(opts.Version) > 0 {
-		mutators = append(mutators, client.WithVersion(opts.Version))
+	if len(version) > 0 {
+		mutators = append(mutators, client.WithVersion(version))
 	} else {
 		mutators = append(mutators, client.WithVersion(DefaultAPIVersion))
 	}
-	if len(opts.Host) > 0 {
-		mutators = append(mutators, client.WithHost(opts.Host))
+	if len(host) > 0 {
+		mutators = append(mutators, client.WithHost(host))
 	}
-	if len(opts.CAFile)+len(opts.CertFile)+len(opts.KeyFile) > 0 {
-		mutators = append(mutators, client.WithTLSClientConfig(opts.CAFile, opts.CertFile, opts.KeyFile))
+	if len(certPath) > 0 {
+		mutators = append(mutators, client.WithTLSClientConfig(filepath.Join(certPath, "ca.pem"), filepath.Join(certPath, "cert.pem"), filepath.Join(certPath, "key.pem")))
 	}
 	return client.NewClientWithOpts(mutators...)
 }

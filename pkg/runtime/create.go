@@ -2,42 +2,31 @@ package runtime
 
 import (
 	"fmt"
-	//"os"
 	"path"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stringid"
-	//"github.com/docker/docker/pkg/term"
 	"github.com/docker/go-connections/nat"
 	"github.com/oclaussen/dodo/pkg/types"
 	"golang.org/x/net/context"
 )
 
-func (c *ContainerRuntime) CreateContainer(config *types.Backdrop) (string, error) {
+func (c *ContainerRuntime) CreateContainer(config *types.Backdrop, tty bool, stdio bool) (string, error) {
 	// TODO: share tmpPath?
 	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
-
-	// TODO: handle daemons
-	daemon := false
-
-	// TODO: we don't have access to os here
-	//_, inTerm := term.GetFdInfo(os.Stdin)
-	//_, outTerm := term.GetFdInfo(os.Stdout)
-	//tty := inTerm && outTerm
-	tty := true
 
 	entrypoint, command := entrypoint(config, tmpPath)
 	response, err := c.client.ContainerCreate(
 		context.Background(),
 		&container.Config{
 			User:         config.User,
-			AttachStdin:  !daemon,
-			AttachStdout: !daemon,
-			AttachStderr: !daemon,
-			Tty:          tty && !daemon,
-			OpenStdin:    !daemon,
-			StdinOnce:    !daemon,
+			AttachStdin:  stdio,
+			AttachStdout: stdio,
+			AttachStderr: stdio,
+			Tty:          tty && stdio,
+			OpenStdin:    stdio,
+			StdinOnce:    stdio,
 			Env:          environment(config),
 			Cmd:          command,
 			Image:        config.ImageId,
@@ -47,11 +36,11 @@ func (c *ContainerRuntime) CreateContainer(config *types.Backdrop) (string, erro
 		},
 		&container.HostConfig{
 			AutoRemove: func() bool {
-				return !daemon
+				return stdio
 			}(),
 			Binds:         volumes(config),
 			PortBindings:  portMap(config),
-			RestartPolicy: restartPolicy(daemon),
+			RestartPolicy: restartPolicy(stdio),
 			Resources: container.Resources{
 				Devices:           devices(config),
 				DeviceCgroupRules: deviceCgroupRules(config),
@@ -89,11 +78,11 @@ func entrypoint(config *types.Backdrop, tmpPath string) ([]string, []string) {
 	return entrypoint, command
 }
 
-func restartPolicy(daemon bool) container.RestartPolicy {
-	if daemon {
-		return container.RestartPolicy{Name: "always"}
-	} else {
+func restartPolicy(stdio bool) container.RestartPolicy {
+	if stdio {
 		return container.RestartPolicy{Name: "no"}
+	} else {
+		return container.RestartPolicy{Name: "always"}
 	}
 }
 

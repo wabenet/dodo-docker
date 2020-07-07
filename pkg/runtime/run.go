@@ -16,10 +16,13 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 }
 
 func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) error {
-	// TODO: tty?
-	tty := true
-
 	ctx := context.Background()
+
+	config, err := c.client.ContainerInspect(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	attach, err := c.client.ContainerAttach(
 		ctx,
 		id,
@@ -41,7 +44,7 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 		defer attach.Conn.Close()
 	}
 
-	if tty {
+	if config.Config.Tty {
 		go io.Copy(w, attach.Reader)
 	} else {
 		// TODO: stderr
