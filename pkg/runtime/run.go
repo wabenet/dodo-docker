@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
+	log "github.com/hashicorp/go-hclog"
 	dodo "github.com/oclaussen/dodo/pkg/types"
 	"golang.org/x/net/context"
 )
@@ -39,19 +40,39 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 	}
 
 	if cw, ok := attach.Conn.(CloseWriter); ok {
-		defer cw.CloseWrite()
+		defer func() {
+			if err := cw.CloseWrite(); err != nil {
+				log.L().Error("could not close streaming connection", "error", err)
+			}
+		}()
 	} else {
-		defer attach.Conn.Close()
+		defer func() {
+			if err := attach.Conn.Close(); err != nil {
+				log.L().Error("could not close streaming connection", "error", err)
+			}
+		}()
 	}
 
 	if config.Config.Tty {
-		go io.Copy(w, attach.Reader)
+		go func() {
+			if _, err := io.Copy(w, attach.Reader); err != nil {
+				log.L().Warn("could not copy container output", "error", err)
+			}
+		}()
 	} else {
 		// TODO: stderr
-		go stdcopy.StdCopy(w, ioutil.Discard, attach.Reader)
+		go func() {
+			if _, err := stdcopy.StdCopy(w, ioutil.Discard, attach.Reader); err != nil {
+				log.L().Warn("could not copy container output", "error", err)
+			}
+		}()
 	}
 
-	go io.Copy(attach.Conn, r)
+	go func() {
+		if _, err := io.Copy(attach.Conn, r); err != nil {
+			log.L().Warn("could not copy container input", "error", err)
+		}
+	}()
 
 	waitCh, errorCh := c.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
 
@@ -67,6 +88,7 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 				ExitCode: resp.StatusCode,
 			}
 		}
+
 		return nil
 	case err := <-errorCh:
 		return err

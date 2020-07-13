@@ -23,6 +23,7 @@ func (c *ContainerRuntime) Init() error {
 	if err != nil {
 		return err
 	}
+
 	c.client = dockerClient
 
 	return nil

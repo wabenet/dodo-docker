@@ -15,8 +15,8 @@ import (
 func (c *ContainerRuntime) CreateContainer(config *types.Backdrop, tty bool, stdio bool) (string, error) {
 	// TODO: share tmpPath?
 	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
-
 	entrypoint, command := entrypoint(config, tmpPath)
+
 	response, err := c.client.ContainerCreate(
 		context.Background(),
 		&container.Config{
@@ -69,6 +69,7 @@ func entrypoint(config *types.Backdrop, tmpPath string) ([]string, []string) {
 	if config.Entrypoint.Interpreter != nil {
 		entrypoint = config.Entrypoint.Interpreter
 	}
+
 	if config.Entrypoint.Interactive {
 		command = nil
 	} else if len(config.Entrypoint.Script) > 0 {
@@ -81,64 +82,76 @@ func entrypoint(config *types.Backdrop, tmpPath string) ([]string, []string) {
 func restartPolicy(stdio bool) container.RestartPolicy {
 	if stdio {
 		return container.RestartPolicy{Name: "no"}
-	} else {
-		return container.RestartPolicy{Name: "always"}
 	}
+
+	return container.RestartPolicy{Name: "always"}
 }
 
 func devices(config *types.Backdrop) []container.DeviceMapping {
 	result := []container.DeviceMapping{}
+
 	for _, device := range config.Devices {
 		if len(device.CgroupRule) > 0 {
 			continue
 		}
+
 		result = append(result, container.DeviceMapping{
 			PathOnHost:        device.Source,
 			PathInContainer:   device.Target,
 			CgroupPermissions: device.Permissions,
 		})
 	}
+
 	return result
 }
 
 func deviceCgroupRules(config *types.Backdrop) []string {
 	result := []string{}
+
 	for _, device := range config.Devices {
 		if len(device.CgroupRule) > 0 {
 			result = append(result, device.CgroupRule)
 		}
 	}
+
 	return result
 }
 
 func portMap(config *types.Backdrop) nat.PortMap {
 	result := map[nat.Port][]nat.PortBinding{}
+
 	for _, port := range config.Ports {
 		portSpec, _ := nat.NewPort(port.Protocol, port.Target)
 		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.Published})
 	}
+
 	return result
 }
 
 func portSet(config *types.Backdrop) nat.PortSet {
 	result := map[nat.Port]struct{}{}
+
 	for _, port := range config.Ports {
 		portSpec, _ := nat.NewPort(port.Protocol, port.Target)
 		result[portSpec] = struct{}{}
 	}
+
 	return result
 }
 
 func environment(config *types.Backdrop) []string {
 	result := []string{}
+
 	for _, kv := range config.Environment {
 		result = append(result, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
 	}
+
 	return result
 }
 
 func volumes(config *types.Backdrop) []string {
 	result := []string{}
+
 	for _, v := range config.Volumes {
 		var volumeString string
 
@@ -152,5 +165,6 @@ func volumes(config *types.Backdrop) []string {
 
 		result = append(result, volumeString)
 	}
+
 	return result
 }

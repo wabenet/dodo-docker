@@ -7,8 +7,15 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/oclaussen/go-gimme/configfiles"
-	"github.com/pkg/errors"
 )
+
+type ConfigError string
+
+const ErrInvalidAuthConfig ConfigError = "invalid auth config"
+
+func (e ConfigError) Error() string {
+	return string(e)
+}
 
 func LoadAuthConfig() map[string]types.AuthConfig {
 	var authConfigs map[string]types.AuthConfig
@@ -27,10 +34,11 @@ func LoadAuthConfig() map[string]types.AuthConfig {
 	}
 
 	var config map[string]*json.RawMessage
-	if err = json.Unmarshal(configFile.Content, &config); err != nil || config["auths"] == nil {
+	if err := json.Unmarshal(configFile.Content, &config); err != nil || config["auths"] == nil {
 		return authConfigs
 	}
-	if err = json.Unmarshal(*config["auths"], &authConfigs); err != nil {
+
+	if err := json.Unmarshal(*config["auths"], &authConfigs); err != nil {
 		return authConfigs
 	}
 
@@ -54,17 +62,22 @@ func decodeAuth(authStr string) (string, string, error) {
 	decLen := base64.StdEncoding.DecodedLen(len(authStr))
 	decoded := make([]byte, decLen)
 	authByte := []byte(authStr)
+
 	n, err := base64.StdEncoding.Decode(decoded, authByte)
 	if err != nil {
 		return "", "", err
 	}
+
 	if n > decLen {
-		return "", "", errors.New("something went wrong decoding auth config")
+		return "", "", ErrInvalidAuthConfig
 	}
+
 	arr := strings.SplitN(string(decoded), ":", 2)
 	if len(arr) != 2 {
-		return "", "", errors.New("invalid auth configuration file")
+		return "", "", ErrInvalidAuthConfig
 	}
+
 	password := strings.Trim(arr[1], "\x00")
+
 	return arr[0], password, nil
 }
