@@ -12,16 +12,20 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/registry"
 	"github.com/dodo/dodo-docker/pkg/client"
+	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
 )
 
 func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
+	log.L().Debug("trying to find image", "name", name)
+
 	ref, err := reference.ParseAnyReference(name)
 	if err != nil {
 		return "", err
 	}
 
 	if _, _, err := c.client.ImageInspectWithRaw(context.Background(), ref.String()); err == nil {
+		log.L().Debug("found image locally", "ref", ref.String())
 		return ref.String(), nil
 	}
 
