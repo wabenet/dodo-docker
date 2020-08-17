@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	log "github.com/hashicorp/go-hclog"
-	dodo "github.com/oclaussen/dodo/pkg/types"
+	dodo "github.com/dodo/dodo-core/pkg/types"
 	"golang.org/x/net/context"
 )
 
