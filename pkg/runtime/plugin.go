@@ -2,9 +2,9 @@ package runtime
 
 import (
 	docker "github.com/docker/docker/client"
-	"github.com/dodo/dodo-core/pkg/plugin"
-	"github.com/dodo/dodo-core/pkg/plugin/runtime"
-	"github.com/dodo/dodo-docker/pkg/client"
+	"github.com/dodo-cli/dodo-core/pkg/plugin"
+	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
+	"github.com/dodo-cli/dodo-docker/pkg/client"
 )
 
 type ContainerRuntime struct {

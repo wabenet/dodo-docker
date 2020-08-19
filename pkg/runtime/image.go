@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/registry"
-	"github.com/dodo/dodo-docker/pkg/client"
+	"github.com/dodo-cli/dodo-docker/pkg/client"
 	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
 )

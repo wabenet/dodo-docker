@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/dodo/dodo-docker/pkg/runtime"
-	"github.com/dodo/dodo-core/pkg/plugin"
+	"github.com/dodo-cli/dodo-docker/pkg/runtime"
+	"github.com/dodo-cli/dodo-core/pkg/plugin"
 )
 
 func main() {
