@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/dodo-cli/dodo-docker/pkg/runtime"
-	"github.com/dodo-cli/dodo-core/pkg/plugin"
+	"os"
+
+	"github.com/dodo-cli/dodo-docker/plugin"
 )
 
 func main() {
-	plugin.ServePlugins(&runtime.ContainerRuntime{})
+	os.Exit(plugin.RunMe())
 }
