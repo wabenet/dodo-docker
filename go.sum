@@ -61,8 +61,8 @@ github.com/docker/go-units v0.4.0 h1:3uh0PgVws3nIA0Q+MwDC8yjEPf9zjRfZZWXZYDct3Tw
 github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 h1:UhxFibDNY/bfvqU5CAUmr9zpesgbU6SWc8/B4mflAE4=
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7/go.mod h1:cyGadeNEkKy96OOhEzfZl+yxihPEzKnqJwvfuSUqbZE=
-github.com/dodo-cli/dodo-core v0.0.0-20200821135148-cb332de21be2 h1:nvMGdqb3ICldaronbOYGHIbiH8viKKuFcb8r0XWqIqE=
-github.com/dodo-cli/dodo-core v0.0.0-20200821135148-cb332de21be2/go.mod h1:NipquIlYkg3gSCjjsg1M2zFCXkbHfkzDmD7ErEvGL+Q=
+github.com/dodo-cli/dodo-core v0.0.0-20200826151612-b4ad1da4f6da h1:ucXwPL4f0kWKQaHs1dIAX6YYuXd9Jwc/Pdo6jo5aq+Y=
+github.com/dodo-cli/dodo-core v0.0.0-20200826151612-b4ad1da4f6da/go.mod h1:NipquIlYkg3gSCjjsg1M2zFCXkbHfkzDmD7ErEvGL+Q=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

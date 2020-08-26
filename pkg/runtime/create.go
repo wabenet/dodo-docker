@@ -40,6 +40,7 @@ func (c *ContainerRuntime) CreateContainer(config *types.Backdrop, tty bool, std
 			}(),
 			Binds:         volumes(config),
 			PortBindings:  portMap(config),
+			CapAdd:        config.Capabilities,
 			RestartPolicy: restartPolicy(stdio),
 			Resources: container.Resources{
 				Devices:           devices(config),
