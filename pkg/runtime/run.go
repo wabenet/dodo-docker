@@ -3,12 +3,13 @@ package runtime
 import (
 	"io"
 	"io/ioutil"
+        "net"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
-	log "github.com/hashicorp/go-hclog"
 	dodo "github.com/dodo-cli/dodo-core/pkg/types"
+	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
 )
 
@@ -38,45 +39,53 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 	if err != nil {
 		return err
 	}
+        defer closeStreamingConnection(attach.Conn)
 
-	if cw, ok := attach.Conn.(CloseWriter); ok {
-		defer func() {
-			if err := cw.CloseWrite(); err != nil {
-				log.L().Error("could not close streaming connection", "error", err)
-			}
-		}()
-	} else {
-		defer func() {
-			if err := attach.Conn.Close(); err != nil {
-				log.L().Error("could not close streaming connection", "error", err)
-			}
-		}()
-	}
+	outputDone := make(chan error)
+	go func() {
+		if config.Config.Tty {
+			_, err := io.Copy(w, attach.Reader)
+			outputDone <- err
+		} else {
+			// TODO: stderr
+			_, err := stdcopy.StdCopy(w, ioutil.Discard, attach.Reader)
+			outputDone <- err
+		}
+	}()
 
-	if config.Config.Tty {
-		go func() {
-			if _, err := io.Copy(w, attach.Reader); err != nil {
-				log.L().Warn("could not copy container output", "error", err)
-			}
-		}()
-	} else {
-		// TODO: stderr
-		go func() {
-			if _, err := stdcopy.StdCopy(w, ioutil.Discard, attach.Reader); err != nil {
-				log.L().Warn("could not copy container output", "error", err)
-			}
-		}()
-	}
-
+	inputDone := make(chan struct{})
 	go func() {
 		if _, err := io.Copy(attach.Conn, r); err != nil {
 			log.L().Warn("could not copy container input", "error", err)
+		}
+                closeStreamingConnection(attach.Conn)
+		close(inputDone)
+	}()
+
+	streamChan := make(chan error, 1)
+	go func() {
+		select {
+		case err := <-outputDone:
+			streamChan <- err
+		case <-inputDone:
+			select {
+			case err := <-outputDone:
+				streamChan <- err
+			case <-ctx.Done():
+				streamChan <- ctx.Err()
+			}
+		case <-ctx.Done():
+			streamChan <- ctx.Err()
 		}
 	}()
 
 	waitCh, errorCh := c.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
 
 	if err := c.StartContainer(id); err != nil {
+		return err
+	}
+
+	if err := <-streamChan; err != nil {
 		return err
 	}
 
@@ -104,6 +113,19 @@ func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint3
 			Width:  uint(width),
 		},
 	)
+}
+
+func closeStreamingConnection(conn net.Conn) {
+	log.L().Info("closing writer")
+	if cw, ok := conn.(CloseWriter); ok {
+		if err := cw.CloseWrite(); err != nil {
+			log.L().Warn("could not close streaming connection", "error", err)
+		}
+	} else {
+		if err := conn.Close(); err != nil {
+			log.L().Warn("could not close streaming connection", "error", err)
+		}
+	}
 }
 
 // TODO there must be something easier
