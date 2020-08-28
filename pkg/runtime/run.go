@@ -3,7 +3,7 @@ package runtime
 import (
 	"io"
 	"io/ioutil"
-        "net"
+	"net"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -17,7 +17,7 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 	return c.client.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
 }
 
-func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) error {
+func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, height uint32, width uint32) error {
 	ctx := context.Background()
 
 	config, err := c.client.ContainerInspect(ctx, id)
@@ -39,7 +39,7 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 	if err != nil {
 		return err
 	}
-        defer closeStreamingConnection(attach.Conn)
+	defer closeStreamingConnection(attach.Conn)
 
 	outputDone := make(chan error)
 	go func() {
@@ -58,7 +58,7 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 		if _, err := io.Copy(attach.Conn, r); err != nil {
 			log.L().Warn("could not copy container input", "error", err)
 		}
-                closeStreamingConnection(attach.Conn)
+		closeStreamingConnection(attach.Conn)
 		close(inputDone)
 	}()
 
@@ -83,6 +83,10 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer) 
 
 	if err := c.StartContainer(id); err != nil {
 		return err
+	}
+
+	if height != 0 || width != 0 {
+		c.ResizeContainer(id, height, width)
 	}
 
 	if err := <-streamChan; err != nil {
