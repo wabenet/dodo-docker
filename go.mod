@@ -11,7 +11,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/dodo-cli/dodo-core v0.0.0-20200826151612-b4ad1da4f6da
+	github.com/dodo-cli/dodo-core v0.0.0-20201124162707-72dde3fe4299
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/hashicorp/go-hclog v0.14.1
