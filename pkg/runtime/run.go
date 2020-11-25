@@ -2,8 +2,8 @@ package runtime
 
 import (
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -47,8 +47,10 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, 
 			_, err := io.Copy(w, attach.Reader)
 			outputDone <- err
 		} else {
-			// TODO: stderr
-			_, err := stdcopy.StdCopy(w, ioutil.Discard, attach.Reader)
+			// TODO: Write stderr to streaming connection.
+                        // Currently, this works if the plugin is compiled in,
+                        // but will fail over gcpr.
+			_, err := stdcopy.StdCopy(w, os.Stderr, attach.Reader)
 			outputDone <- err
 		}
 	}()
