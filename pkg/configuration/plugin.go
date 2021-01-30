@@ -2,16 +2,17 @@ package configuration
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	dockerapi "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
+	api "github.com/dodo-cli/dodo-core/api/v1alpha1"
 	"github.com/dodo-cli/dodo-core/pkg/plugin"
 	"github.com/dodo-cli/dodo-core/pkg/plugin/configuration"
-	"github.com/dodo-cli/dodo-core/pkg/types"
 	"github.com/dodo-cli/dodo-docker/pkg/client"
 	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
@@ -20,11 +21,15 @@ import (
 // TODO: a lot of this should be consolidated with runtime and client
 
 const (
+	name = "docker"
+
 	envHost       = "DOCKER_HOST"
 	envApiVersion = "DOCKER_API_VERSION"
 	envCertPath   = "DOCKER_CERT_PATH"
 	envVerify     = "DOCKER_TLS_VERIFY"
 )
+
+var _ configuration.Configuration = &Configuration{}
 
 type Configuration struct {
 	client     *docker.Client
@@ -51,25 +56,33 @@ func (p *Configuration) Init() error {
 	return nil
 }
 
-func (p *Configuration) UpdateConfiguration(backdrop *types.Backdrop) (*types.Backdrop, error) {
-	env := []*types.Environment{}
+func (p *Configuration) PluginInfo() (*api.PluginInfo, error) {
+	return &api.PluginInfo{Name: name}, nil
+}
+
+func (p *Configuration) GetBackdrop(alias string) (*api.Backdrop, error) {
+	env := []*api.Environment{}
 
 	if len(p.apiVersion) > 0 {
-		env = append(env, &types.Environment{Key: envApiVersion, Value: p.apiVersion})
+		env = append(env, &api.Environment{Key: envApiVersion, Value: p.apiVersion})
 	}
 
 	if len(p.host) > 0 {
-		env = append(env, &types.Environment{Key: envHost, Value: p.host})
+		env = append(env, &api.Environment{Key: envHost, Value: p.host})
 	}
 
 	if len(p.certPath) > 0 {
 		env = append(env,
-			&types.Environment{Key: envCertPath, Value: p.certPath},
-			&types.Environment{Key: envVerify, Value: "1"},
+			&api.Environment{Key: envCertPath, Value: p.certPath},
+			&api.Environment{Key: envVerify, Value: "1"},
 		)
 	}
 
-	return &types.Backdrop{Environment: env}, nil
+	return &api.Backdrop{Environment: env}, nil
+}
+
+func (p *Configuration) ListBackdrops() ([]*api.Backdrop, error) {
+	return []*api.Backdrop{}, fmt.Errorf("not implemented") // TODO: implement list
 }
 
 func (p *Configuration) Provision(containerID string) error {
@@ -121,7 +134,7 @@ func (p *Configuration) uploadFile(containerID string, path string, contents []b
 			containerID,
 			"/",
 			reader,
-			dockerapi.CopyToContainerOptions{},
+			types.CopyToContainerOptions{},
 		); err != nil {
 			log.L().Error("could not upload file to container", "error", err)
 		}

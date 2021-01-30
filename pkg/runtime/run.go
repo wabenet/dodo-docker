@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
-	dodo "github.com/dodo-cli/dodo-core/pkg/types"
+	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
 	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
 )
@@ -48,8 +48,8 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, 
 			outputDone <- err
 		} else {
 			// TODO: Write stderr to streaming connection.
-                        // Currently, this works if the plugin is compiled in,
-                        // but will fail over gcpr.
+			// Currently, this works if the plugin is compiled in,
+			// but will fail over gcpr.
 			_, err := stdcopy.StdCopy(w, os.Stderr, attach.Reader)
 			outputDone <- err
 		}
@@ -98,7 +98,7 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, 
 	select {
 	case resp := <-waitCh:
 		if resp.Error != nil {
-			return &dodo.Result{
+			return &runtime.Result{
 				Message:  resp.Error.Message,
 				ExitCode: resp.StatusCode,
 			}

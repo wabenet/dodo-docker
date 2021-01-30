@@ -4,7 +4,7 @@ import (
 	"archive/tar"
 	"io"
 
-	dockerapi "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types"
 	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
 )
@@ -20,7 +20,7 @@ func (c *ContainerRuntime) UploadFile(containerID string, path string, contents 
 			containerID,
 			"/",
 			reader,
-			dockerapi.CopyToContainerOptions{},
+			types.CopyToContainerOptions{},
 		); err != nil {
 			log.L().Error("could not upload file to container", "error", err)
 		}

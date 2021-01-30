@@ -5,7 +5,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (c *ContainerRuntime) RemoveContainer(id string) error {
+func (c *ContainerRuntime) DeleteContainer(id string) error {
 	if err := c.client.ContainerStop(context.Background(), id, nil); err != nil {
 		return err
 	}

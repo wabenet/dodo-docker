@@ -16,8 +16,6 @@ func GetDockerClient() (*client.Client, error) {
 	version := os.Getenv("DOCKER_API_VERSION")
 	certPath := os.Getenv("DOCKER_CERT_PATH")
 
-	// TODO: let plugins update the options
-
 	mutators := []client.Opt{}
 	if len(version) > 0 {
 		mutators = append(mutators, client.WithVersion(version))
