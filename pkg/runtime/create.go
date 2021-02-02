@@ -2,7 +2,10 @@ package runtime
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -59,6 +62,31 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 		if err := c.UploadFile(response.ID, path.Join(tmpPath, "entrypoint"), []byte(config.Entrypoint.Script+"\n")); err != nil {
 			return "", err
 		}
+	}
+
+	certDir := os.Getenv("DOCKER_CERT_PATH")
+	if len(certDir) > 0 {
+		caPath := filepath.Join(certDir, "ca.pem")
+		if ca, err := ioutil.ReadFile(caPath); err == nil {
+			if err := c.UploadFile(response.ID, caPath, ca); err != nil {
+				return "", err
+			}
+		}
+
+		certPath := filepath.Join(certDir, "cert.pem")
+		if cert, err := ioutil.ReadFile(certPath); err == nil {
+			if err := c.UploadFile(response.ID, certPath, cert); err != nil {
+				return "", err
+			}
+		}
+
+		keyPath := filepath.Join(certDir, "key.pem")
+		if key, err := ioutil.ReadFile(keyPath); err == nil {
+			if err := c.UploadFile(response.ID, keyPath, key); err != nil {
+				return "", err
+			}
+		}
+
 	}
 
 	return response.ID, nil
@@ -143,6 +171,14 @@ func portSet(config *api.Backdrop) nat.PortSet {
 
 func environment(config *api.Backdrop) []string {
 	result := []string{}
+
+	for _, env := range []string{"DOCKER_HOST", "DOCKER_API_VERSION", "DOCKER_CERT_PATH", "DOCKER_TLS_VERIFY"} {
+		value := os.Getenv(env)
+
+		if len(value) > 0 {
+			result = append(result, fmt.Sprintf("%s=%s", env, value))
+		}
+	}
 
 	for _, kv := range config.Environment {
 		result = append(result, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
