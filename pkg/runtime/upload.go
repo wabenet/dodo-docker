@@ -14,8 +14,13 @@ func (c *ContainerRuntime) UploadFile(containerID string, path string, contents 
 	defer reader.Close()
 	defer writer.Close()
 
+	client, err := c.Client()
+	if err != nil {
+		return err
+	}
+
 	go func() {
-		if err := c.client.CopyToContainer(
+		if err := client.CopyToContainer(
 			context.Background(),
 			containerID,
 			"/",
@@ -29,12 +34,11 @@ func (c *ContainerRuntime) UploadFile(containerID string, path string, contents 
 	tarWriter := tar.NewWriter(writer)
 	defer tarWriter.Close()
 
-	err := tarWriter.WriteHeader(&tar.Header{
+	if err := tarWriter.WriteHeader(&tar.Header{
 		Name: path,
 		Mode: 0644,
 		Size: int64(len(contents)),
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 

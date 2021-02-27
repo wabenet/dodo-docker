@@ -16,7 +16,11 @@ type ContainerRuntime struct {
 	client *docker.Client
 }
 
-func New(client *docker.Client) *ContainerRuntime {
+func New() *ContainerRuntime {
+	return &ContainerRuntime{}
+}
+
+func NewFromClient(client *docker.Client) *ContainerRuntime {
 	return &ContainerRuntime{client: client}
 }
 
@@ -24,17 +28,17 @@ func (c *ContainerRuntime) Type() plugin.Type {
 	return runtime.Type
 }
 
-func (c *ContainerRuntime) Init() error {
+func (c *ContainerRuntime) Client() (*docker.Client, error) {
 	if c.client == nil {
 		dockerClient, err := client.GetDockerClient()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		c.client = dockerClient
 	}
 
-	return nil
+	return c.client, nil
 }
 
 func (p *ContainerRuntime) PluginInfo() (*api.PluginInfo, error) {

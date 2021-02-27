@@ -6,10 +6,10 @@ import (
 )
 
 func RunMe() int {
-	plugin.ServePlugins(&runtime.ContainerRuntime{})
+	plugin.ServePlugins(runtime.New())
 	return 0
 }
 
 func IncludeMe() {
-	plugin.IncludePlugins(&runtime.ContainerRuntime{})
+	plugin.IncludePlugins(runtime.New())
 }

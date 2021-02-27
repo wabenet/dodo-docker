@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/registry"
-	"github.com/dodo-cli/dodo-docker/pkg/client"
+	docker "github.com/dodo-cli/dodo-docker/pkg/client"
 	log "github.com/hashicorp/go-hclog"
 	"golang.org/x/net/context"
 )
@@ -24,7 +24,12 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		return "", err
 	}
 
-	if _, _, err := c.client.ImageInspectWithRaw(context.Background(), ref.String()); err == nil {
+	client, err := c.Client()
+	if err != nil {
+		return "", err
+	}
+
+	if _, _, err := client.ImageInspectWithRaw(context.Background(), ref.String()); err == nil {
 		log.L().Debug("found image locally", "ref", ref.String())
 		return ref.String(), nil
 	}
@@ -46,7 +51,7 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 	configKey := repoInfo.Index.Name
 
 	if repoInfo.Index.Official {
-		info, err := c.client.Info(context.Background())
+		info, err := client.Info(context.Background())
 		if err != nil && info.IndexServerAddress != "" {
 			configKey = info.IndexServerAddress
 		} else {
@@ -54,14 +59,14 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		}
 	}
 
-	authConfigs := client.LoadAuthConfig()
+	authConfigs := docker.LoadAuthConfig()
 
 	buf, err := json.Marshal(authConfigs[configKey])
 	if err != nil {
 		return "", err
 	}
 
-	response, err := c.client.ImagePull(
+	response, err := client.ImagePull(
 		context.Background(),
 		parsed.String(),
 		types.ImagePullOptions{

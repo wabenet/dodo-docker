@@ -20,7 +20,12 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
 	entrypoint, command := entrypoint(config, tmpPath)
 
-	response, err := c.client.ContainerCreate(
+	client, err := c.Client()
+	if err != nil {
+		return "", err
+	}
+
+	response, err := client.ContainerCreate(
 		context.Background(),
 		&container.Config{
 			User:         config.User,

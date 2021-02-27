@@ -14,18 +14,28 @@ import (
 )
 
 func (c *ContainerRuntime) StartContainer(id string) error {
-	return c.client.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
+	client, err := c.Client()
+	if err != nil {
+		return err
+	}
+
+	return client.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
 }
 
 func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, height uint32, width uint32) error {
 	ctx := context.Background()
 
-	config, err := c.client.ContainerInspect(ctx, id)
+	client, err := c.Client()
 	if err != nil {
 		return err
 	}
 
-	attach, err := c.client.ContainerAttach(
+	config, err := client.ContainerInspect(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	attach, err := client.ContainerAttach(
 		ctx,
 		id,
 		types.ContainerAttachOptions{
@@ -81,7 +91,7 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, 
 		}
 	}()
 
-	waitCh, errorCh := c.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
+	waitCh, errorCh := client.ContainerWait(ctx, id, container.WaitConditionRemoved)
 
 	if err := c.StartContainer(id); err != nil {
 		return err
@@ -111,7 +121,12 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, 
 }
 
 func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint32) error {
-	return c.client.ContainerResize(
+	client, err := c.Client()
+	if err != nil {
+		return err
+	}
+
+	return client.ContainerResize(
 		context.Background(),
 		id,
 		types.ResizeOptions{

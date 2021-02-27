@@ -6,11 +6,16 @@ import (
 )
 
 func (c *ContainerRuntime) DeleteContainer(id string) error {
-	if err := c.client.ContainerStop(context.Background(), id, nil); err != nil {
+	client, err := c.Client()
+	if err != nil {
 		return err
 	}
 
-	if err := c.client.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{}); err != nil {
+	if err := client.ContainerStop(context.Background(), id, nil); err != nil {
+		return err
+	}
+
+	if err := client.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{}); err != nil {
 		return err
 	}
 
