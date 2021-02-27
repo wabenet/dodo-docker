@@ -1,8 +1,9 @@
+.PHONY: all
 all: clean test build
 
 .PHONY: clean
 clean:
-	rm -f dodo-docker_*
+	rm -rf ./dist
 
 .PHONY: fmt
 fmt:
@@ -14,12 +15,12 @@ tidy:
 
 .PHONY: lint
 lint:
-	golangci-lint run --enable-all
+	CGO_ENABLED=0 golangci-lint run --enable-all -D exhaustivestruct
 
 .PHONY: test
 test:
-	go test -cover ./...
+	CGO_ENABLED=0 go test -cover ./...
 
 .PHONY: build
 build:
-	gox -arch="amd64" -os="darwin linux" ./...
+	goreleaser build --snapshot --rm-dist

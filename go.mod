@@ -1,6 +1,6 @@
 module github.com/dodo-cli/dodo-docker
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5 // indirect
