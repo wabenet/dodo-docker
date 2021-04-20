@@ -98,6 +98,8 @@ github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 h1:UhxFibDNY/bfvqU
 github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7/go.mod h1:cyGadeNEkKy96OOhEzfZl+yxihPEzKnqJwvfuSUqbZE=
 github.com/dodo-cli/dodo-core v0.0.0-20210419152444-ac57ff4ad07d h1:LKhJQFLuOLhwOk2P/wcWkEXZfr3C3jVXFHnF8h/dSOc=
 github.com/dodo-cli/dodo-core v0.0.0-20210419152444-ac57ff4ad07d/go.mod h1:DjkBThYYIgIibnBRT20ddF7PmwXJAQN/ISn7lUVQCZE=
+github.com/dodo-cli/dodo-core v0.0.0-20210420121125-4f5f88891497 h1:Os6h+4Kjmc0wes62z4rUnEfGJ76HpRc8tc11Qfz2Qio=
+github.com/dodo-cli/dodo-core v0.0.0-20210420121125-4f5f88891497/go.mod h1:DjkBThYYIgIibnBRT20ddF7PmwXJAQN/ISn7lUVQCZE=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
