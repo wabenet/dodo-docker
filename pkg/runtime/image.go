@@ -3,9 +3,7 @@ package runtime
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
-	"os"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
@@ -106,10 +104,8 @@ func streamPull(result io.Reader) error {
 			continue
 		}
 
-		if msg.Stream != "" {
-			fmt.Fprintf(os.Stderr, "%s\n", msg.Stream)
-		} else if msg.Status != "" {
-			fmt.Fprintf(os.Stderr, "%s\n", msg.Status)
+		if msg.Stream != "" || msg.Status != "" {
+			log.L().Info("pull stream", "status", msg.Status, "stream", msg.Stream)
 		}
 	}
 

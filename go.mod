@@ -11,7 +11,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/dodo-cli/dodo-core v0.0.0-20210420121125-4f5f88891497
+	github.com/dodo-cli/dodo-core v0.0.0-20210722161142-c0233223a28c
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/hashicorp/go-hclog v0.15.0
@@ -23,6 +23,7 @@ require (
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/stretchr/testify v1.6.1 // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	google.golang.org/grpc v1.36.0 // indirect
 	gotest.tools v2.2.0+incompatible // indirect

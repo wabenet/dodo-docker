@@ -1,16 +1,16 @@
 package runtime
 
 import (
+	"context"
 	"io"
-	"net"
-	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/dodo-cli/dodo-core/pkg/plugin"
 	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
 	log "github.com/hashicorp/go-hclog"
-	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 )
 
 func (c *ContainerRuntime) StartContainer(id string) error {
@@ -22,7 +22,38 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 	return client.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
 }
 
-func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, height uint32, width uint32) error {
+func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width uint32) error {
+	client, err := c.Client()
+	if err != nil {
+		return err
+	}
+
+	waitCh, errorCh := client.ContainerWait(context.Background(), id, container.WaitConditionRemoved)
+
+	if err := c.StartContainer(id); err != nil {
+		return err
+	}
+
+	if height != 0 || width != 0 {
+		c.ResizeContainer(id, height, width)
+	}
+
+	select {
+	case resp := <-waitCh:
+		if resp.Error != nil {
+			return &runtime.Result{
+				Message:  resp.Error.Message,
+				ExitCode: resp.StatusCode,
+			}
+		}
+
+		return nil
+	case err := <-errorCh:
+		return err
+	}
+}
+
+func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfig) error {
 	ctx := context.Background()
 
 	client, err := c.Client()
@@ -49,75 +80,41 @@ func (c *ContainerRuntime) StreamContainer(id string, r io.Reader, w io.Writer, 
 	if err != nil {
 		return err
 	}
-	defer closeStreamingConnection(attach.Conn)
 
-	outputDone := make(chan error)
-	go func() {
+	defer func() {
+		if err := attach.Conn.Close(); err != nil {
+			log.L().Warn("could not close streaming connection", "error", err)
+		}
+	}()
+
+	eg, _ := errgroup.WithContext(ctx)
+	inCopier := plugin.NewCancelCopier(stream.Stdin, attach.Conn)
+
+	eg.Go(func() error {
+		defer inCopier.Close()
 		if config.Config.Tty {
-			_, err := io.Copy(w, attach.Reader)
-			outputDone <- err
-		} else {
-			// TODO: Write stderr to streaming connection.
-			// Currently, this works if the plugin is compiled in,
-			// but will fail over gcpr.
-			_, err := stdcopy.StdCopy(w, os.Stderr, attach.Reader)
-			outputDone <- err
-		}
-	}()
-
-	inputDone := make(chan struct{})
-	go func() {
-		if _, err := io.Copy(attach.Conn, r); err != nil {
-			log.L().Warn("could not copy container input", "error", err)
-		}
-		closeStreamingConnection(attach.Conn)
-		close(inputDone)
-	}()
-
-	streamChan := make(chan error, 1)
-	go func() {
-		select {
-		case err := <-outputDone:
-			streamChan <- err
-		case <-inputDone:
-			select {
-			case err := <-outputDone:
-				streamChan <- err
-			case <-ctx.Done():
-				streamChan <- ctx.Err()
+			if _, err := io.Copy(stream.Stdout, attach.Reader); err != nil {
+				log.L().Warn("could not copy container output", "error", err)
 			}
-		case <-ctx.Done():
-			streamChan <- ctx.Err()
-		}
-	}()
-
-	waitCh, errorCh := client.ContainerWait(ctx, id, container.WaitConditionRemoved)
-
-	if err := c.StartContainer(id); err != nil {
-		return err
-	}
-
-	if height != 0 || width != 0 {
-		c.ResizeContainer(id, height, width)
-	}
-
-	if err := <-streamChan; err != nil {
-		return err
-	}
-
-	select {
-	case resp := <-waitCh:
-		if resp.Error != nil {
-			return &runtime.Result{
-				Message:  resp.Error.Message,
-				ExitCode: resp.StatusCode,
+		} else {
+			if _, err := stdcopy.StdCopy(stream.Stdout, stream.Stderr, attach.Reader); err != nil {
+				log.L().Warn("could not copy container output", "error", err)
 			}
 		}
 
 		return nil
-	case err := <-errorCh:
-		return err
-	}
+	})
+
+	eg.Go(func() error {
+		inCopier.Copy()
+		return nil
+	})
+
+	eg.Go(func() error {
+		return c.RunAndWaitContainer(id, stream.TerminalHeight, stream.TerminalWidth)
+	})
+
+	return eg.Wait()
 }
 
 func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint32) error {
@@ -134,22 +131,4 @@ func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint3
 			Width:  uint(width),
 		},
 	)
-}
-
-func closeStreamingConnection(conn net.Conn) {
-	log.L().Info("closing writer")
-	if cw, ok := conn.(CloseWriter); ok {
-		if err := cw.CloseWrite(); err != nil {
-			log.L().Warn("could not close streaming connection", "error", err)
-		}
-	} else {
-		if err := conn.Close(); err != nil {
-			log.L().Warn("could not close streaming connection", "error", err)
-		}
-	}
-}
-
-// TODO there must be something easier
-type CloseWriter interface {
-	CloseWrite() error
 }

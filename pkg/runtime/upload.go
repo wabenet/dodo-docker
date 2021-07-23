@@ -2,47 +2,51 @@ package runtime
 
 import (
 	"archive/tar"
+	"context"
 	"io"
 
 	"github.com/docker/docker/api/types"
-	log "github.com/hashicorp/go-hclog"
-	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 )
 
 func (c *ContainerRuntime) UploadFile(containerID string, path string, contents []byte) error {
+	eg, ctx := errgroup.WithContext(context.Background())
 	reader, writer := io.Pipe()
-	defer reader.Close()
-	defer writer.Close()
 
-	client, err := c.Client()
-	if err != nil {
-		return err
-	}
+	eg.Go(func() error {
+		defer reader.Close()
 
-	go func() {
-		if err := client.CopyToContainer(
-			context.Background(),
+		client, err := c.Client()
+		if err != nil {
+			return err
+		}
+
+		return client.CopyToContainer(
+			ctx,
 			containerID,
 			"/",
 			reader,
 			types.CopyToContainerOptions{},
-		); err != nil {
-			log.L().Error("could not upload file to container", "error", err)
+		)
+	})
+
+	eg.Go(func() error {
+		tarWriter := tar.NewWriter(writer)
+		defer tarWriter.Close()
+		defer writer.Close()
+
+		if err := tarWriter.WriteHeader(&tar.Header{
+			Name: path,
+			Mode: 0644,
+			Size: int64(len(contents)),
+		}); err != nil {
+			return err
 		}
-	}()
 
-	tarWriter := tar.NewWriter(writer)
-	defer tarWriter.Close()
+		_, err := tarWriter.Write(contents)
 
-	if err := tarWriter.WriteHeader(&tar.Header{
-		Name: path,
-		Mode: 0644,
-		Size: int64(len(contents)),
-	}); err != nil {
 		return err
-	}
+	})
 
-	_, err = tarWriter.Write(contents)
-
-	return err
+	return eg.Wait()
 }
