@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"fmt"
+
 	docker "github.com/docker/docker/client"
 	api "github.com/dodo-cli/dodo-core/api/v1alpha1"
 	"github.com/dodo-cli/dodo-core/pkg/plugin"
@@ -24,7 +26,7 @@ func NewFromClient(client *docker.Client) *ContainerRuntime {
 	return &ContainerRuntime{client: client}
 }
 
-func (c *ContainerRuntime) Type() plugin.Type {
+func (*ContainerRuntime) Type() plugin.Type {
 	return runtime.Type
 }
 
@@ -32,7 +34,7 @@ func (c *ContainerRuntime) Client() (*docker.Client, error) {
 	if c.client == nil {
 		dockerClient, err := client.GetDockerClient()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not get docker config: %w", err)
 		}
 
 		c.client = dockerClient
@@ -41,6 +43,6 @@ func (c *ContainerRuntime) Client() (*docker.Client, error) {
 	return c.client, nil
 }
 
-func (p *ContainerRuntime) PluginInfo() (*api.PluginInfo, error) {
+func (*ContainerRuntime) PluginInfo() (*api.PluginInfo, error) {
 	return &api.PluginInfo{Name: name}, nil
 }

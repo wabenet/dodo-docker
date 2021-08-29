@@ -3,10 +3,15 @@ package runtime
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/docker/docker/api/types"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	filemode = 0644
 )
 
 func (c *ContainerRuntime) UploadFile(containerID string, path string, contents []byte) error {
@@ -37,15 +42,17 @@ func (c *ContainerRuntime) UploadFile(containerID string, path string, contents 
 
 		if err := tarWriter.WriteHeader(&tar.Header{
 			Name: path,
-			Mode: 0644,
+			Mode: filemode,
 			Size: int64(len(contents)),
 		}); err != nil {
-			return err
+			return fmt.Errorf("could not write tar stream: %w", err)
 		}
 
-		_, err := tarWriter.Write(contents)
+		if _, err := tarWriter.Write(contents); err != nil {
+			return fmt.Errorf("could not write tar stream: %w", err)
+		}
 
-		return err
+		return nil
 	})
 
 	return eg.Wait()

@@ -28,7 +28,11 @@ func GetDockerClient() (*client.Client, error) {
 	}
 
 	if len(certPath) > 0 {
-		mutators = append(mutators, client.WithTLSClientConfig(filepath.Join(certPath, "ca.pem"), filepath.Join(certPath, "cert.pem"), filepath.Join(certPath, "key.pem")))
+		mutators = append(mutators, client.WithTLSClientConfig(
+			filepath.Join(certPath, "ca.pem"),
+			filepath.Join(certPath, "cert.pem"),
+			filepath.Join(certPath, "key.pem"),
+		))
 	}
 
 	return client.NewClientWithOpts(mutators...)

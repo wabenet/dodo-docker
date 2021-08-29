@@ -16,7 +16,6 @@ import (
 )
 
 func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio bool) (string, error) {
-	// TODO: share tmpPath?
 	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
 	entrypoint, command := entrypoint(config, tmpPath)
 
@@ -56,15 +55,19 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 			},
 		},
 		&network.NetworkingConfig{},
-		nil, //TODO: what goes here?
+		nil,
 		config.ContainerName,
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not create container: %w", err)
 	}
 
 	if len(config.Entrypoint.Script) > 0 {
-		if err := c.UploadFile(response.ID, path.Join(tmpPath, "entrypoint"), []byte(config.Entrypoint.Script+"\n")); err != nil {
+		if err := c.UploadFile(
+			response.ID,
+			path.Join(tmpPath, "entrypoint"),
+			[]byte(config.Entrypoint.Script+"\n"),
+		); err != nil {
 			return "", err
 		}
 	}
@@ -91,7 +94,6 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 				return "", err
 			}
 		}
-
 	}
 
 	return response.ID, nil
@@ -198,11 +200,12 @@ func volumes(config *api.Backdrop) []string {
 	for _, v := range config.Volumes {
 		var volumeString string
 
-		if v.Target == "" && !v.Readonly {
+		switch {
+		case v.Target == "" && !v.Readonly:
 			volumeString = fmt.Sprintf("%s:%s", v.Source, v.Source)
-		} else if !v.Readonly {
+		case !v.Readonly:
 			volumeString = fmt.Sprintf("%s:%s", v.Source, v.Target)
-		} else {
+		default:
 			volumeString = fmt.Sprintf("%s:%s:ro", v.Source, v.Target)
 		}
 

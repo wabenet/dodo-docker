@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"fmt"
+
 	"github.com/docker/docker/api/types"
 	"golang.org/x/net/context"
 )
@@ -12,12 +14,8 @@ func (c *ContainerRuntime) DeleteContainer(id string) error {
 	}
 
 	if err := client.ContainerStop(context.Background(), id, nil); err != nil {
-		return err
+		return fmt.Errorf("could not stop container: %w", err)
 	}
 
-	if err := client.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{}); err != nil {
-		return err
-	}
-
-	return nil
+	return client.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{})
 }

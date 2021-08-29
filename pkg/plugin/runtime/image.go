@@ -3,6 +3,8 @@ package runtime
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 
 	"github.com/docker/distribution/reference"
@@ -19,7 +21,7 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 
 	ref, err := reference.ParseAnyReference(name)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not parse image name: %w", err)
 	}
 
 	client, err := c.Client()
@@ -29,12 +31,13 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 
 	if _, _, err := client.ImageInspectWithRaw(context.Background(), ref.String()); err == nil {
 		log.L().Debug("found image locally", "ref", ref.String())
+
 		return ref.String(), nil
 	}
 
 	parsed, err := reference.ParseNormalizedNamed(name)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not parse image name: %w", err)
 	}
 
 	if reference.IsNameOnly(parsed) {
@@ -43,7 +46,7 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 
 	repoInfo, err := registry.ParseRepositoryInfo(parsed)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not parse image name: %w", err)
 	}
 
 	configKey := repoInfo.Index.Name
@@ -61,7 +64,7 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 
 	buf, err := json.Marshal(authConfigs[configKey])
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not parse auth config: %w", err)
 	}
 
 	response, err := client.ImagePull(
@@ -72,12 +75,12 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		},
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not pull image: %w", err)
 	}
 	defer response.Close()
 
 	if err = streamPull(response); err != nil {
-		return "", err
+		return "", fmt.Errorf("error during container stream: %w", err)
 	}
 
 	return parsed.String(), nil
@@ -89,11 +92,11 @@ func streamPull(result io.Reader) error {
 	for {
 		var msg jsonmessage.JSONMessage
 		if err := decoder.Decode(&msg); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 
-			return err
+			return fmt.Errorf("invalid json: %w", err)
 		}
 
 		if msg.Error != nil {

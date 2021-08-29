@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/docker/docker/api/types"
@@ -31,11 +32,13 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 	waitCh, errorCh := client.ContainerWait(context.Background(), id, container.WaitConditionRemoved)
 
 	if err := c.StartContainer(id); err != nil {
-		return err
+		return fmt.Errorf("could not stop container: %w", err)
 	}
 
 	if height != 0 || width != 0 {
-		c.ResizeContainer(id, height, width)
+		if err := c.ResizeContainer(id, height, width); err != nil {
+			log.L().Error("error during resize", "error", err)
+		}
 	}
 
 	select {
@@ -63,7 +66,7 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 
 	config, err := client.ContainerInspect(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not inspect container: %w", err)
 	}
 
 	attach, err := client.ContainerAttach(
@@ -78,7 +81,7 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not attach to container: %w", err)
 	}
 
 	defer func() {
@@ -106,7 +109,10 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 	})
 
 	eg.Go(func() error {
-		inCopier.Copy()
+		if err := inCopier.Copy(); err != nil {
+			log.L().Error("could not copy container input", "error", err)
+		}
+
 		return nil
 	})
 
