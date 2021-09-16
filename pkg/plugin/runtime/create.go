@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/go-connections/nat"
-	api "github.com/dodo-cli/dodo-core/api/v1alpha1"
+	api "github.com/dodo-cli/dodo-core/api/v1alpha2"
 	"golang.org/x/net/context"
 )
 
@@ -19,7 +19,7 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
 	entrypoint, command := entrypoint(config, tmpPath)
 
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return "", err
 	}

@@ -1,10 +1,11 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 
 	docker "github.com/docker/docker/client"
-	api "github.com/dodo-cli/dodo-core/api/v1alpha1"
+	api "github.com/dodo-cli/dodo-core/api/v1alpha2"
 	"github.com/dodo-cli/dodo-core/pkg/plugin"
 	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
 	"github.com/dodo-cli/dodo-docker/pkg/client"
@@ -30,7 +31,37 @@ func (*ContainerRuntime) Type() plugin.Type {
 	return runtime.Type
 }
 
-func (c *ContainerRuntime) Client() (*docker.Client, error) {
+func (c *ContainerRuntime) PluginInfo() *api.PluginInfo {
+	return &api.PluginInfo{
+		Name: &api.PluginName{
+			Name: name,
+			Type: runtime.Type.String(),
+		},
+	}
+}
+
+func (c *ContainerRuntime) Init() (plugin.PluginConfig, error) {
+	client, err := c.ensureClient()
+	if err != nil {
+		return nil, err
+	}
+
+	ping, err := client.Ping(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("could not reach docker host: %w", err)
+	}
+
+	return map[string]string{
+		"client_version":  client.ClientVersion(),
+		"host":            client.DaemonHost(),
+		"api_version":     ping.APIVersion,
+		"builder_version": fmt.Sprintf("%v", ping.BuilderVersion),
+		"os_type":         ping.OSType,
+		"experimental":    fmt.Sprintf("%t", ping.Experimental),
+	}, nil
+}
+
+func (c *ContainerRuntime) ensureClient() (*docker.Client, error) {
 	if c.client == nil {
 		dockerClient, err := client.GetDockerClient()
 		if err != nil {
@@ -41,8 +72,4 @@ func (c *ContainerRuntime) Client() (*docker.Client, error) {
 	}
 
 	return c.client, nil
-}
-
-func (*ContainerRuntime) PluginInfo() (*api.PluginInfo, error) {
-	return &api.PluginInfo{Name: name}, nil
 }

@@ -24,7 +24,7 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		return "", fmt.Errorf("could not parse image name: %w", err)
 	}
 
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return "", err
 	}

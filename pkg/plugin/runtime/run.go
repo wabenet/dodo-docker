@@ -15,7 +15,7 @@ import (
 )
 
 func (c *ContainerRuntime) StartContainer(id string) error {
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 }
 
 func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width uint32) error {
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfig) error {
 	ctx := context.Background()
 
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 }
 
 func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint32) error {
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return err
 	}

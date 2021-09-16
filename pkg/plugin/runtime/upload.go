@@ -21,7 +21,7 @@ func (c *ContainerRuntime) UploadFile(containerID string, path string, contents 
 	eg.Go(func() error {
 		defer reader.Close()
 
-		client, err := c.Client()
+		client, err := c.ensureClient()
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,7 @@ import (
 )
 
 func (c *ContainerRuntime) DeleteContainer(id string) error {
-	client, err := c.Client()
+	client, err := c.ensureClient()
 	if err != nil {
 		return err
 	}
