@@ -43,14 +43,13 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 
 	select {
 	case resp := <-waitCh:
+		result := &runtime.Result{ExitCode: resp.StatusCode}
+
 		if resp.Error != nil {
-			return &runtime.Result{
-				Message:  resp.Error.Message,
-				ExitCode: resp.StatusCode,
-			}
+			result.Message = resp.Error.Message
 		}
 
-		return nil
+		return result
 	case err := <-errorCh:
 		return err
 	}
