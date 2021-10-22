@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -23,16 +24,16 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 	return client.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
 }
 
-func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width uint32) error {
+func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width uint32) (*runtime.Result, error) {
 	client, err := c.ensureClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	waitCh, errorCh := client.ContainerWait(context.Background(), id, container.WaitConditionRemoved)
 
 	if err := c.StartContainer(id); err != nil {
-		return fmt.Errorf("could not stop container: %w", err)
+		return nil, fmt.Errorf("could not stop container: %w", err)
 	}
 
 	if height != 0 || width != 0 {
@@ -43,29 +44,27 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 
 	select {
 	case resp := <-waitCh:
-		result := &runtime.Result{ExitCode: resp.StatusCode}
-
 		if resp.Error != nil {
-			result.Message = resp.Error.Message
+			return nil, errors.New(resp.Error.Message)
 		}
 
-		return result
+		return &runtime.Result{ExitCode: int(resp.StatusCode)}, nil
 	case err := <-errorCh:
-		return err
+		return nil, err
 	}
 }
 
-func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfig) error {
+func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfig) (*runtime.Result, error) {
 	ctx := context.Background()
 
 	client, err := c.ensureClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	config, err := client.ContainerInspect(ctx, id)
 	if err != nil {
-		return fmt.Errorf("could not inspect container: %w", err)
+		return nil, fmt.Errorf("could not inspect container: %w", err)
 	}
 
 	attach, err := client.ContainerAttach(
@@ -80,7 +79,7 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("could not attach to container: %w", err)
+		return nil, fmt.Errorf("could not attach to container: %w", err)
 	}
 
 	defer func() {
@@ -90,6 +89,7 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 	}()
 
 	eg, _ := errgroup.WithContext(ctx)
+	result := &runtime.Result{}
 	inCopier := plugin.NewCancelCopier(stream.Stdin, attach.Conn)
 
 	eg.Go(func() error {
@@ -116,10 +116,14 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 	})
 
 	eg.Go(func() error {
-		return c.RunAndWaitContainer(id, stream.TerminalHeight, stream.TerminalWidth)
+		r, err := c.RunAndWaitContainer(id, stream.TerminalHeight, stream.TerminalWidth)
+
+		result.ExitCode = r.ExitCode
+
+		return err
 	})
 
-	return eg.Wait()
+	return result, eg.Wait()
 }
 
 func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint32) error {

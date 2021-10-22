@@ -8,7 +8,7 @@ require (
 	github.com/docker/docker v20.10.2+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/dodo-cli/dodo-core v0.1.1-0.20210915164217-1c50006deac2
+	github.com/dodo-cli/dodo-core v0.1.1-0.20211021161658-f146cd6923e9
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/hashicorp/go-hclog v0.15.0
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
