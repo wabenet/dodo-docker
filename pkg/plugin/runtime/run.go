@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/dodo-cli/dodo-core/pkg/plugin"
 	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
 	log "github.com/hashicorp/go-hclog"
@@ -57,63 +55,16 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfig) (*runtime.Result, error) {
 	ctx := context.Background()
 
-	client, err := c.ensureClient()
+	s, err := c.AttachContainer(ctx, id, stream)
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := client.ContainerInspect(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("could not inspect container: %w", err)
-	}
-
-	attach, err := client.ContainerAttach(
-		ctx,
-		id,
-		types.ContainerAttachOptions{
-			Stream: true,
-			Stdin:  true,
-			Stdout: true,
-			Stderr: true,
-			Logs:   true,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not attach to container: %w", err)
-	}
-
-	defer func() {
-		if err := attach.Conn.Close(); err != nil {
-			log.L().Warn("could not close streaming connection", "error", err)
-		}
-	}()
-
 	eg, _ := errgroup.WithContext(ctx)
 	result := &runtime.Result{}
-	inCopier := plugin.NewCancelCopier(stream.Stdin, attach.Conn)
 
-	eg.Go(func() error {
-		defer inCopier.Close()
-		if config.Config.Tty {
-			if _, err := io.Copy(stream.Stdout, attach.Reader); err != nil {
-				log.L().Warn("could not copy container output", "error", err)
-			}
-		} else {
-			if _, err := stdcopy.StdCopy(stream.Stdout, stream.Stderr, attach.Reader); err != nil {
-				log.L().Warn("could not copy container output", "error", err)
-			}
-		}
-
-		return nil
-	})
-
-	eg.Go(func() error {
-		if err := inCopier.Copy(); err != nil {
-			log.L().Error("could not copy container input", "error", err)
-		}
-
-		return nil
-	})
+	eg.Go(s.CopyOutput)
+	eg.Go(s.CopyInput)
 
 	eg.Go(func() error {
 		r, err := c.RunAndWaitContainer(id, stream.TerminalHeight, stream.TerminalWidth)
