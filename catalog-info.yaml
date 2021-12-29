@@ -1,0 +1,11 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dodo-docker
+  description: Provides dodo container runtime based on Docker
+
+spec:
+  type: library
+  lifecycle: production
+  owner: ole.claussen@wabenet.com
