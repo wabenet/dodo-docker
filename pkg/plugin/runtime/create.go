@@ -45,6 +45,7 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 			Binds:         volumes(config),
 			PortBindings:  portMap(config),
 			CapAdd:        config.Capabilities,
+			Init:          &[]bool{true}[0],
 			RestartPolicy: restartPolicy(stdio),
 			Resources: container.Resources{
 				Devices:           devices(config),

@@ -68,10 +68,13 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 
 	eg.Go(func() error {
 		r, err := c.RunAndWaitContainer(id, stream.TerminalHeight, stream.TerminalWidth)
+		if err != nil {
+			return err
+		}
 
 		result.ExitCode = r.ExitCode
 
-		return err
+		return nil
 	})
 
 	return result, eg.Wait()
