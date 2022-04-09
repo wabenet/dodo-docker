@@ -27,7 +27,7 @@ similar to the normal [docker cli](https://docs.docker.com/engine/reference/comm
 ## license & authors
 
 ```text
-Copyright 2021 Ole Claussen
+Copyright 2022 Ole Claussen
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
