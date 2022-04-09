@@ -3,7 +3,7 @@ module github.com/dodo-cli/dodo-docker
 go 1.18
 
 require (
-	github.com/docker/distribution v2.7.1+incompatible
+	github.com/docker/distribution v2.8.0+incompatible
 	github.com/docker/docker v20.10.2+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/dodo-cli/dodo-core v0.4.2
