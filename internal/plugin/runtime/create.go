@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/go-connections/nat"
-	api "github.com/dodo-cli/dodo-core/api/v1alpha2"
+	api "github.com/wabenet/dodo-core/api/v1alpha3"
 	"golang.org/x/net/context"
 )
 

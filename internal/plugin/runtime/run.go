@@ -7,9 +7,9 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/dodo-cli/dodo-core/pkg/plugin"
-	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
 	log "github.com/hashicorp/go-hclog"
+	"github.com/wabenet/dodo-core/pkg/plugin"
+	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,7 +31,7 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 	waitCh, errorCh := client.ContainerWait(context.Background(), id, container.WaitConditionRemoved)
 
 	if err := c.StartContainer(id); err != nil {
-		return nil, fmt.Errorf("could not stop container: %w", err)
+		return nil, fmt.Errorf("could not start container: %w", err)
 	}
 
 	if height != 0 || width != 0 {
@@ -55,7 +55,7 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfig) (*runtime.Result, error) {
 	ctx := context.Background()
 
-	s, err := c.AttachContainer(ctx, id, stream)
+	s, cancel, err := c.AttachContainer(ctx, id, stream)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,8 @@ func (c *ContainerRuntime) StreamContainer(id string, stream *plugin.StreamConfi
 	eg.Go(s.CopyInput)
 
 	eg.Go(func() error {
+		defer cancel()
+
 		r, err := c.RunAndWaitContainer(id, stream.TerminalHeight, stream.TerminalWidth)
 		if err != nil {
 			return err

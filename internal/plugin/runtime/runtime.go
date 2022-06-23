@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	docker "github.com/docker/docker/client"
-	api "github.com/dodo-cli/dodo-core/api/v1alpha2"
-	"github.com/dodo-cli/dodo-core/pkg/plugin"
-	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
-	"github.com/dodo-cli/dodo-docker/pkg/client"
+	api "github.com/wabenet/dodo-core/api/v1alpha3"
+	"github.com/wabenet/dodo-core/pkg/plugin"
+	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
+	"github.com/wabenet/dodo-docker/pkg/client"
 )
 
 const name = "docker"

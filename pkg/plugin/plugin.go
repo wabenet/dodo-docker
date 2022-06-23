@@ -2,9 +2,9 @@ package plugin
 
 import (
 	"github.com/docker/docker/client"
-	"github.com/dodo-cli/dodo-core/pkg/plugin"
-	"github.com/dodo-cli/dodo-core/pkg/plugin/runtime"
-	impl "github.com/dodo-cli/dodo-docker/internal/plugin/runtime"
+	"github.com/wabenet/dodo-core/pkg/plugin"
+	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
+	impl "github.com/wabenet/dodo-docker/internal/plugin/runtime"
 )
 
 func RunMe() int {

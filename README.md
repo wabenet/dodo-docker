@@ -11,11 +11,11 @@ following generate config:
 
 ```yaml
 plugins:
-  - import: github.com/dodo-cli/dodo-docker/plugin
+  - import: github.com/wabenet/dodo-docker/pkg/plugin
 ```
 
 Alternatively, you can install it as a standalone plugin by downloading the
-correct file for your system from the [releases page](https://github.com/dodo-cli/dodo-docker/releases),
+correct file for your system from the [releases page](https://github.com/wabenet/dodo-docker/releases),
 then copy it into the dodo plugin directory (`${HOME}/.dodo/plugins`).
 
 ## configuration

@@ -7,15 +7,18 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/dodo-cli/dodo-core/pkg/plugin"
 	log "github.com/hashicorp/go-hclog"
+	"github.com/wabenet/dodo-core/pkg/ioutil"
+	"github.com/wabenet/dodo-core/pkg/plugin"
 )
 
 type ContainerStream struct {
-	hasTTY   bool
-	config   *plugin.StreamConfig
-	hijack   types.HijackedResponse
-	inCopier *plugin.CancelCopier
+	hasTTY bool
+	hijack types.HijackedResponse
+
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
 }
 
 type closeWriter interface {
@@ -24,15 +27,15 @@ type closeWriter interface {
 
 func (c *ContainerRuntime) AttachContainer(
 	ctx context.Context, id string, stream *plugin.StreamConfig,
-) (*ContainerStream, error) {
+) (*ContainerStream, func(), error) {
 	client, err := c.ensureClient()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	config, err := client.ContainerInspect(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("could not inspect container: %w", err)
+		return nil, nil, fmt.Errorf("could not inspect container: %w", err)
 	}
 
 	attach, err := client.ContainerAttach(
@@ -47,26 +50,28 @@ func (c *ContainerRuntime) AttachContainer(
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not attach to container: %w", err)
+		return nil, nil, fmt.Errorf("could not attach to container: %w", err)
 	}
 
+	inContext, cancel := context.WithCancel(context.Background())
+	inReader := ioutil.NewCancelableReader(inContext, stream.Stdin)
+
 	return &ContainerStream{
-		hasTTY:   config.Config.Tty,
-		config:   stream,
-		hijack:   attach,
-		inCopier: plugin.NewCancelCopier(stream.Stdin, attach.Conn),
-	}, nil
+		hasTTY: config.Config.Tty,
+		hijack: attach,
+		stdin:  inReader,
+		stdout: stream.Stdout,
+		stderr: stream.Stderr,
+	}, cancel, nil
 }
 
 func (s *ContainerStream) CopyOutput() error {
-	defer s.inCopier.Close()
-
 	if s.hasTTY {
-		if _, err := io.Copy(s.config.Stdout, s.hijack.Reader); err != nil {
+		if _, err := io.Copy(s.stdout, s.hijack.Reader); err != nil {
 			log.L().Warn("could not copy container output", "error", err)
 		}
 	} else {
-		if _, err := stdcopy.StdCopy(s.config.Stdout, s.config.Stderr, s.hijack.Reader); err != nil {
+		if _, err := stdcopy.StdCopy(s.stdout, s.stderr, s.hijack.Reader); err != nil {
 			log.L().Warn("could not copy container output", "error", err)
 		}
 	}
@@ -88,7 +93,7 @@ func (s *ContainerStream) CopyInput() error {
 		}
 	}()
 
-	if err := s.inCopier.Copy(); err != nil {
+	if _, err := io.Copy(s.hijack.Conn, s.stdin); err != nil {
 		log.L().Error("could not copy container input", "error", err)
 	}
 
