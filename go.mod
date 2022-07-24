@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-hclog v0.15.0
 	github.com/moby/sys/signal v0.6.0
 	github.com/oclaussen/go-gimme/configfiles v0.0.0-20200205175519-d9560e60c720
-	github.com/wabenet/dodo-core v0.6.0
+	github.com/wabenet/dodo-core v0.7.0
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )

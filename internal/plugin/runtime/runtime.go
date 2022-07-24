@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	docker "github.com/docker/docker/client"
-	api "github.com/wabenet/dodo-core/api/v1alpha3"
+	api "github.com/wabenet/dodo-core/api/v1alpha4"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 	"github.com/wabenet/dodo-docker/pkg/client"
@@ -60,6 +60,8 @@ func (c *ContainerRuntime) Init() (plugin.PluginConfig, error) {
 		"experimental":    fmt.Sprintf("%t", ping.Experimental),
 	}, nil
 }
+
+func (*ContainerRuntime) Cleanup() {}
 
 func (c *ContainerRuntime) ensureClient() (*docker.Client, error) {
 	if c.client == nil {
