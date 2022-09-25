@@ -1,6 +1,6 @@
-# dodo docker runtime
+# dodo docker plugin
 
-Adds support for the [Docker](https://www.docker.com/) daemon as a dodo runtime plugin.
+Adds support for the Docker daemon as a dodo runtime plugin.
 
 ## installation
 

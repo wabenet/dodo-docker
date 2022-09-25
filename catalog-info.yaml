@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: dodo-docker
-  description: Provides dodo container runtime based on Docker
+  description: Adds support for the Docker daemon as a dodo runtime plugin.
 
 spec:
   type: library

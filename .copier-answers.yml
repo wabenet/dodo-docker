@@ -1,0 +1,12 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.1.0
+_src_path: https://github.com/wabenet/copier-dodo-plugin
+author_email: ole.claussen@wabenet.com
+author_name: Ole Claussen
+description: Adds support for the Docker daemon as a dodo runtime plugin.
+go_version: '1.18'
+is_standalone: true
+lifecycle: production
+name: docker
+use_protobuf: false
+
