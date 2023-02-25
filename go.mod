@@ -10,7 +10,7 @@ require (
 	github.com/moby/sys/signal v0.7.0
 	github.com/oclaussen/go-gimme/configfiles v0.0.0-20200205175519-d9560e60c720
 	github.com/wabenet/dodo-core v0.7.4
-	golang.org/x/net v0.0.0-20221004154528-8021a29435af
+	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
 )
 
@@ -57,8 +57,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.13.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	google.golang.org/grpc v1.49.0 // indirect
