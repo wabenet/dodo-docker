@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	docker "github.com/docker/docker/client"
-	api "github.com/wabenet/dodo-core/api/v1alpha4"
+	core "github.com/wabenet/dodo-core/api/core/v1alpha5"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 	"github.com/wabenet/dodo-docker/pkg/client"
@@ -31,16 +31,16 @@ func (*ContainerRuntime) Type() plugin.Type {
 	return runtime.Type
 }
 
-func (c *ContainerRuntime) PluginInfo() *api.PluginInfo {
-	return &api.PluginInfo{
-		Name: &api.PluginName{
+func (c *ContainerRuntime) PluginInfo() *core.PluginInfo {
+	return &core.PluginInfo{
+		Name: &core.PluginName{
 			Name: name,
 			Type: runtime.Type.String(),
 		},
 	}
 }
 
-func (c *ContainerRuntime) Init() (plugin.PluginConfig, error) {
+func (c *ContainerRuntime) Init() (plugin.Config, error) {
 	client, err := c.ensureClient()
 	if err != nil {
 		return nil, err

@@ -8,11 +8,11 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/go-connections/nat"
-	api "github.com/wabenet/dodo-core/api/v1alpha4"
+	core "github.com/wabenet/dodo-core/api/core/v1alpha5"
 	"golang.org/x/net/context"
 )
 
-func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio bool) (string, error) {
+func (c *ContainerRuntime) CreateContainer(config *core.Backdrop, tty bool, stdio bool) (string, error) {
 	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
 	entrypoint, command := entrypoint(config, tmpPath)
 
@@ -73,7 +73,7 @@ func (c *ContainerRuntime) CreateContainer(config *api.Backdrop, tty bool, stdio
 	return response.ID, nil
 }
 
-func entrypoint(config *api.Backdrop, tmpPath string) ([]string, []string) {
+func entrypoint(config *core.Backdrop, tmpPath string) ([]string, []string) {
 	entrypoint := []string{"/bin/sh"}
 	command := config.Entrypoint.Arguments
 
@@ -98,7 +98,7 @@ func restartPolicy(stdio bool) container.RestartPolicy {
 	return container.RestartPolicy{Name: "always"}
 }
 
-func devices(config *api.Backdrop) []container.DeviceMapping {
+func devices(config *core.Backdrop) []container.DeviceMapping {
 	result := []container.DeviceMapping{}
 
 	for _, device := range config.Devices {
@@ -116,7 +116,7 @@ func devices(config *api.Backdrop) []container.DeviceMapping {
 	return result
 }
 
-func deviceCgroupRules(config *api.Backdrop) []string {
+func deviceCgroupRules(config *core.Backdrop) []string {
 	result := []string{}
 
 	for _, device := range config.Devices {
@@ -128,7 +128,7 @@ func deviceCgroupRules(config *api.Backdrop) []string {
 	return result
 }
 
-func portMap(config *api.Backdrop) nat.PortMap {
+func portMap(config *core.Backdrop) nat.PortMap {
 	result := map[nat.Port][]nat.PortBinding{}
 
 	for _, port := range config.Ports {
@@ -139,7 +139,7 @@ func portMap(config *api.Backdrop) nat.PortMap {
 	return result
 }
 
-func portSet(config *api.Backdrop) nat.PortSet {
+func portSet(config *core.Backdrop) nat.PortSet {
 	result := map[nat.Port]struct{}{}
 
 	for _, port := range config.Ports {
@@ -150,7 +150,7 @@ func portSet(config *api.Backdrop) nat.PortSet {
 	return result
 }
 
-func environment(config *api.Backdrop) []string {
+func environment(config *core.Backdrop) []string {
 	result := []string{}
 
 	for _, kv := range config.Environment {
@@ -160,7 +160,7 @@ func environment(config *api.Backdrop) []string {
 	return result
 }
 
-func volumes(config *api.Backdrop) []string {
+func volumes(config *core.Backdrop) []string {
 	result := []string{}
 
 	for _, v := range config.Volumes {
