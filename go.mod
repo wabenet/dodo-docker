@@ -1,6 +1,6 @@
 module github.com/wabenet/dodo-docker
 
-go 1.18
+go 1.20
 
 require (
 	github.com/docker/distribution v2.8.1+incompatible

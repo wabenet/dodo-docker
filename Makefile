@@ -24,4 +24,4 @@ test:
 
 .PHONY: build
 build:
-	goreleaser build --snapshot --rm-dist
+	goreleaser build --snapshot --clean
