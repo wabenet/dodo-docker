@@ -14,7 +14,7 @@ const (
 	filemode = 0644
 )
 
-func (c *ContainerRuntime) UploadFile(containerID string, path string, contents []byte) error {
+func (c *ContainerRuntime) WriteFile(containerID string, path string, contents []byte) error {
 	eg, ctx := errgroup.WithContext(context.Background())
 	reader, writer := io.Pipe()
 

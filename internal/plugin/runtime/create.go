@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/go-connections/nat"
-	core "github.com/wabenet/dodo-core/api/core/v1alpha5"
+	core "github.com/wabenet/dodo-core/api/core/v1alpha6"
 	"golang.org/x/net/context"
 )
 
@@ -61,7 +61,7 @@ func (c *ContainerRuntime) CreateContainer(config *core.Backdrop, tty bool, stdi
 	}
 
 	if len(config.Entrypoint.Script) > 0 {
-		if err := c.UploadFile(
+		if err := c.WriteFile(
 			response.ID,
 			path.Join(tmpPath, "entrypoint"),
 			[]byte(config.Entrypoint.Script+"\n"),
