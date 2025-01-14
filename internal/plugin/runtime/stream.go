@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/wabenet/dodo-core/pkg/ioutil"
@@ -41,7 +42,7 @@ func (c *ContainerRuntime) AttachContainer(
 	attach, err := client.ContainerAttach(
 		ctx,
 		id,
-		types.ContainerAttachOptions{
+		container.AttachOptions{
 			Stream: true,
 			Stdin:  true,
 			Stdout: true,

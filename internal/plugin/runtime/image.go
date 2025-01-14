@@ -1,18 +1,18 @@
 package runtime
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
-	"github.com/docker/distribution/reference"
-	"github.com/docker/docker/api/types"
+	"github.com/distribution/reference"
+	cli "github.com/docker/cli/cli/command"
+	"github.com/docker/docker/api/types/image"
+	registrytypes "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/registry"
 	log "github.com/hashicorp/go-hclog"
-	docker "github.com/wabenet/dodo-docker/pkg/client"
 	"golang.org/x/net/context"
 )
 
@@ -49,29 +49,22 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		return "", fmt.Errorf("could not parse image name: %w", err)
 	}
 
-	configKey := repoInfo.Index.Name
-
-	if repoInfo.Index.Official {
-		info, err := client.Info(context.Background())
-		if err != nil && info.IndexServerAddress != "" {
-			configKey = info.IndexServerAddress
-		} else {
-			configKey = registry.IndexServer
-		}
+	dockerCLI, err := cli.NewDockerCli(cli.WithBaseContext(context.Background()))
+	if err != nil {
+		return "", fmt.Errorf("could not get docker config: %w", err)
 	}
 
-	authConfigs := docker.LoadAuthConfig()
-
-	buf, err := json.Marshal(authConfigs[configKey])
+	authConfig := cli.ResolveAuthConfig(dockerCLI.ConfigFile(), repoInfo.Index)
+	encodedAuth, err := registrytypes.EncodeAuthConfig(authConfig)
 	if err != nil {
-		return "", fmt.Errorf("could not parse auth config: %w", err)
+		return "", fmt.Errorf("could not encode auth config: %w", err)
 	}
 
 	response, err := client.ImagePull(
 		context.Background(),
 		parsed.String(),
-		types.ImagePullOptions{
-			RegistryAuth: base64.URLEncoding.EncodeToString(buf),
+		image.PullOptions{
+			RegistryAuth: encodedAuth,
 		},
 	)
 	if err != nil {

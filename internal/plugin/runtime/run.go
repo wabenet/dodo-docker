@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/wabenet/dodo-core/pkg/plugin"
@@ -19,7 +18,7 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 		return err
 	}
 
-	return client.ContainerStart(context.Background(), id, types.ContainerStartOptions{})
+	return client.ContainerStart(context.Background(), id, container.StartOptions{})
 }
 
 func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width uint32) (*runtime.Result, error) {
@@ -91,7 +90,7 @@ func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint3
 	return client.ContainerResize(
 		context.Background(),
 		id,
-		types.ResizeOptions{
+		container.ResizeOptions{
 			Height: uint(height),
 			Width:  uint(width),
 		},
