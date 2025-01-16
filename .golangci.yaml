@@ -3,19 +3,51 @@ linters:
   enable-all: true
   disable:
     - exhaustruct
-    - exhaustivestruct
     - godox
 
-linters-settings:
-  gofumpt:
-    extra-rules: true
-  gomnd:
-    ignored-numbers: [1,2,3]
-
 issues:
+  new: true
+  new-from-rev: HEAD
   exclude-rules:
     - path: _test.go
       linters:
         - errcheck
         - gochecknoglobals
         - unused
+
+linters-settings:
+  gofumpt:
+    extra-rules: true
+
+  mnd:
+    ignored-numbers: [1,2,3]
+
+  varnamelen:
+    ignore-names: [err, ok]
+
+  wrapcheck:
+    ignorePackageGlobs:
+      - "github.com/hashicorp/go-multierror"
+
+  depguard:
+    rules:
+      main:
+        files:
+          - "$all"
+          - "!$test"
+        allow:
+          - "$gostd"
+          - "github.com/wabenet"
+          - "github.com/hashicorp"
+          - "github.com/spf13/cobra"
+          - "github.com/spf13/viper"
+        deny:
+          - pkg: reflect
+            desc: Please don't use reflect package
+      test:
+        files:
+          - "$test"
+        allow:
+          - "$gostd"
+          - "github.com/wabenet"
+          - "github.com/stretchr/testify"

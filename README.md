@@ -1,13 +1,12 @@
 ![release](https://img.shields.io/github/v/release/wabenet/dodo-docker?sort=semver)
-![build](https://img.shields.io/github/workflow/status/wabenet/dodo-docker/CI?logo=github)
+![build](https://img.shields.io/github/actions/workflow/status/wabenet/dodo-docker/ci.yaml?branch=main&logo=github)
 ![codecov](https://img.shields.io/codecov/c/github/wabenet/dodo-docker?logo=codecov)
 ![codeclimate](https://img.shields.io/codeclimate/maintainability/wabenet/dodo-docker?logo=codeclimate)
 ![license](https://img.shields.io/github/license/wabenet/dodo-docker)
 
-# dodo docker plugin
+# dodo-docker
 
 Adds support for the Docker daemon as a dodo runtime plugin.
-
 ## installation
 
 This plugin is already included in the dodo default distribution.
@@ -33,7 +32,7 @@ similar to the normal [docker cli](https://docs.docker.com/engine/reference/comm
 ## license & authors
 
 ```text
-Copyright 2022 Ole Claussen
+Copyright 2025 Ole Claussen
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
