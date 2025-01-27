@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v27.5.0+incompatible
-	github.com/docker/docker v27.5.0+incompatible
+	github.com/docker/docker v27.5.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/moby/sys/signal v0.7.1
