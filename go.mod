@@ -11,7 +11,7 @@ require (
 	github.com/moby/sys/signal v0.7.1
 	github.com/wabenet/dodo-core v0.9.0
 	golang.org/x/net v0.34.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.11.0
 )
 
 require (
