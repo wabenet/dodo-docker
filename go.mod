@@ -1,6 +1,7 @@
 module github.com/wabenet/dodo-docker
 
 go 1.23
+toolchain go1.24.1
 
 require (
 	github.com/distribution/reference v0.6.0
@@ -11,7 +12,7 @@ require (
 	github.com/moby/sys/signal v0.7.1
 	github.com/wabenet/dodo-core v0.9.0
 	golang.org/x/net v0.34.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.13.0
 )
 
 require (
