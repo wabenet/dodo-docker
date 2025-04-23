@@ -2,20 +2,18 @@ package runtime
 
 import (
 	"fmt"
-	"path"
+	"os"
+	"strconv"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/go-connections/nat"
-	core "github.com/wabenet/dodo-core/api/core/v1alpha6"
+	api "github.com/wabenet/dodo-core/api/runtime/v1alpha2"
 	"golang.org/x/net/context"
 )
 
-func (c *ContainerRuntime) CreateContainer(config *core.Backdrop, tty bool, stdio bool) (string, error) {
-	tmpPath := fmt.Sprintf("/tmp/dodo-%s/", stringid.GenerateRandomID()[:20])
-	entrypoint, command := entrypoint(config, tmpPath)
-
+func (c *ContainerRuntime) CreateContainer(config *api.ContainerConfig) (string, error) {
 	client, err := c.ensureClient()
 	if err != nil {
 		return "", err
@@ -23,74 +21,59 @@ func (c *ContainerRuntime) CreateContainer(config *core.Backdrop, tty bool, stdi
 
 	response, err := client.ContainerCreate(
 		context.Background(),
-		&container.Config{
-			User:         config.User,
-			AttachStdin:  stdio,
-			AttachStdout: stdio,
-			AttachStderr: stdio,
-			Tty:          tty && stdio,
-			OpenStdin:    stdio,
-			StdinOnce:    stdio,
-			Env:          environment(config),
-			Cmd:          command,
-			Image:        config.ImageId,
-			WorkingDir:   config.WorkingDir,
-			Entrypoint:   entrypoint,
-			ExposedPorts: portSet(config),
-		},
-		&container.HostConfig{
-			AutoRemove: func() bool {
-				return stdio
-			}(),
-			Binds:         volumes(config),
-			PortBindings:  portMap(config),
-			CapAdd:        config.Capabilities,
-			Init:          &[]bool{true}[0],
-			RestartPolicy: restartPolicy(stdio),
-			Resources: container.Resources{
-				Devices:           devices(config),
-				DeviceCgroupRules: deviceCgroupRules(config),
-			},
-		},
-		&network.NetworkingConfig{},
+		mkContainerConfig(config),
+		mkHostConfig(config),
+		mkNetworkingConfig(config),
 		nil,
-		config.ContainerName,
+		config.GetName(),
 	)
 	if err != nil {
 		return "", fmt.Errorf("could not create container: %w", err)
 	}
 
-	if len(config.Entrypoint.Script) > 0 {
-		if err := c.WriteFile(
-			response.ID,
-			path.Join(tmpPath, "entrypoint"),
-			[]byte(config.Entrypoint.Script+"\n"),
-		); err != nil {
-			return "", err
-		}
-	}
-
 	return response.ID, nil
 }
 
-func entrypoint(config *core.Backdrop, tmpPath string) ([]string, []string) {
-	entrypoint := []string{"/bin/sh"}
-	command := config.Entrypoint.Arguments
-
-	if config.Entrypoint.Interpreter != nil {
-		entrypoint = config.Entrypoint.Interpreter
+func mkContainerConfig(config *api.ContainerConfig) *container.Config {
+	return &container.Config{
+		Image:        config.GetImage(),
+		AttachStdin:  config.GetTerminal().GetStdio(),
+		AttachStdout: config.GetTerminal().GetStdio(),
+		AttachStderr: config.GetTerminal().GetStdio(),
+		OpenStdin:    config.GetTerminal().GetStdio(),
+		StdinOnce:    config.GetTerminal().GetStdio(),
+		Tty:          config.GetTerminal().GetTty(),
+		User:         config.GetProcess().GetUser(),
+		WorkingDir:   config.GetProcess().GetWorkingDir(),
+		Cmd:          config.GetProcess().GetCommand(),
+		Entrypoint:   config.GetProcess().GetEntrypoint(),
+		Env:          mkEnvironment(config),
+		ExposedPorts: mkPortSet(config),
 	}
-
-	if config.Entrypoint.Interactive {
-		command = nil
-	} else if len(config.Entrypoint.Script) > 0 {
-		entrypoint = append(entrypoint, path.Join(tmpPath, "entrypoint"))
-	}
-
-	return entrypoint, command
 }
 
-func restartPolicy(stdio bool) container.RestartPolicy {
+func mkHostConfig(config *api.ContainerConfig) *container.HostConfig {
+	return &container.HostConfig{
+		AutoRemove: func() bool {
+			return config.GetTerminal().GetStdio()
+		}(),
+		Mounts:        mkMounts(config),
+		PortBindings:  mkPortMap(config),
+		CapAdd:        config.GetCapabilities(),
+		Init:          &[]bool{true}[0],
+		RestartPolicy: mkRestartPolicy(config.GetTerminal().GetStdio()),
+		Resources: container.Resources{
+			Devices:           mkDevices(config),
+			DeviceCgroupRules: mkDeviceCgroupRules(config),
+		},
+	}
+}
+
+func mkNetworkingConfig(_ *api.ContainerConfig) *network.NetworkingConfig {
+	return &network.NetworkingConfig{}
+}
+
+func mkRestartPolicy(stdio bool) container.RestartPolicy {
 	if stdio {
 		return container.RestartPolicy{Name: "no"}
 	}
@@ -98,85 +81,168 @@ func restartPolicy(stdio bool) container.RestartPolicy {
 	return container.RestartPolicy{Name: "always"}
 }
 
-func devices(config *core.Backdrop) []container.DeviceMapping {
-	result := []container.DeviceMapping{}
-
-	for _, device := range config.Devices {
-		if len(device.CgroupRule) > 0 {
-			continue
-		}
-
-		result = append(result, container.DeviceMapping{
-			PathOnHost:        device.Source,
-			PathInContainer:   device.Target,
-			CgroupPermissions: device.Permissions,
-		})
-	}
-
-	return result
-}
-
-func deviceCgroupRules(config *core.Backdrop) []string {
-	result := []string{}
-
-	for _, device := range config.Devices {
-		if len(device.CgroupRule) > 0 {
-			result = append(result, device.CgroupRule)
-		}
-	}
-
-	return result
-}
-
-func portMap(config *core.Backdrop) nat.PortMap {
+func mkPortMap(config *api.ContainerConfig) nat.PortMap {
 	result := map[nat.Port][]nat.PortBinding{}
 
-	for _, port := range config.Ports {
-		portSpec, _ := nat.NewPort(port.Protocol, port.Target)
-		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.Published})
+	for _, port := range config.GetPorts() {
+		portSpec, _ := nat.NewPort(port.GetProtocol(), port.GetContainerPort())
+		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.GetHostPort()})
 	}
 
 	return result
 }
 
-func portSet(config *core.Backdrop) nat.PortSet {
+func mkPortSet(config *api.ContainerConfig) nat.PortSet {
 	result := map[nat.Port]struct{}{}
 
-	for _, port := range config.Ports {
-		portSpec, _ := nat.NewPort(port.Protocol, port.Target)
+	for _, port := range config.GetPorts() {
+		portSpec, _ := nat.NewPort(port.GetProtocol(), port.GetContainerPort())
 		result[portSpec] = struct{}{}
 	}
 
 	return result
 }
 
-func environment(config *core.Backdrop) []string {
+func mkEnvironment(config *api.ContainerConfig) []string {
 	result := []string{}
 
-	for _, kv := range config.Environment {
-		result = append(result, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
+	for _, kv := range config.GetEnvironment() {
+		result = append(result, fmt.Sprintf("%s=%s", kv.GetKey(), kv.GetValue()))
 	}
 
 	return result
 }
 
-func volumes(config *core.Backdrop) []string {
-	result := []string{}
+func mkMounts(config *api.ContainerConfig) []mount.Mount {
+	result := []mount.Mount{}
 
-	for _, v := range config.Volumes {
-		var volumeString string
-
-		switch {
-		case v.Target == "" && !v.Readonly:
-			volumeString = fmt.Sprintf("%s:%s", v.Source, v.Source)
-		case !v.Readonly:
-			volumeString = fmt.Sprintf("%s:%s", v.Source, v.Target)
-		default:
-			volumeString = fmt.Sprintf("%s:%s:ro", v.Source, v.Target)
+	for _, m := range config.GetMounts() {
+		if r, ok := mkMount(m); ok {
+			result = append(result, r)
 		}
-
-		result = append(result, volumeString)
 	}
 
 	return result
+}
+
+func mkMount(config *api.Mount) (mount.Mount, bool) {
+	switch m := config.GetType().(type) {
+	case *api.Mount_Bind:
+		return mkBindMount(m.Bind), true
+	case *api.Mount_Volume:
+		return mkVolumeMount(m.Volume), true
+	case *api.Mount_Tmpfs:
+		return mkTmpfsMount(m.Tmpfs), true
+	case *api.Mount_Image:
+		return mkImageMount(m.Image), true
+	case *api.Mount_Device:
+		// Device mounts don't support the Mount API yet
+		return mount.Mount{}, false
+	default:
+		return mount.Mount{}, false
+	}
+}
+
+func mkDevices(config *api.ContainerConfig) []container.DeviceMapping {
+	result := []container.DeviceMapping{}
+
+	for _, m := range config.GetMounts() {
+		if r, ok := mkDevice(m); ok {
+			result = append(result, r)
+		}
+	}
+
+	return result
+}
+
+func mkDevice(config *api.Mount) (container.DeviceMapping, bool) {
+	switch m := config.GetType().(type) {
+	case *api.Mount_Device:
+		return mkDeviceMount(m.Device), true
+	default:
+		return container.DeviceMapping{}, false
+	}
+}
+
+func mkDeviceCgroupRules(config *api.ContainerConfig) []string {
+	result := []string{}
+
+	for _, m := range config.GetMounts() {
+		if r, ok := mkDeviceCgroupRule(m); ok {
+			result = append(result, r)
+		}
+	}
+
+	return result
+}
+
+func mkDeviceCgroupRule(config *api.Mount) (string, bool) {
+	switch m := config.GetType().(type) {
+	case *api.Mount_Device:
+		if len(m.Device.GetCgroupRule()) > 0 {
+			return m.Device.GetCgroupRule(), true
+		} else {
+			return "", false
+		}
+	default:
+		return "", false
+	}
+}
+
+func mkBindMount(config *api.BindMount) mount.Mount {
+	return mount.Mount{
+		Type:     mount.TypeBind,
+		Source:   config.GetHostPath(),
+		Target:   config.GetContainerPath(),
+		ReadOnly: config.GetReadonly(),
+		BindOptions: &mount.BindOptions{
+			CreateMountpoint: true,
+		},
+	}
+}
+
+func mkVolumeMount(config *api.VolumeMount) mount.Mount {
+	return mount.Mount{
+		Type:     mount.TypeVolume,
+		Source:   config.GetVolumeName(),
+		Target:   config.GetContainerPath(),
+		ReadOnly: config.GetReadonly(),
+		VolumeOptions: &mount.VolumeOptions{
+			Subpath: config.GetSubpath(),
+		},
+	}
+}
+
+func mkTmpfsMount(config *api.TmpfsMount) mount.Mount {
+	mode, _ := strconv.ParseUint(config.GetMode(), 8, 32)
+	// TODO error handling
+
+	return mount.Mount{
+		Type:   mount.TypeTmpfs,
+		Target: config.GetContainerPath(),
+		TmpfsOptions: &mount.TmpfsOptions{
+			SizeBytes: config.GetSize(),
+			Mode:      os.FileMode(mode),
+		},
+	}
+}
+
+func mkImageMount(config *api.ImageMount) mount.Mount {
+	return mount.Mount{
+		Type:     mount.TypeImage,
+		Source:   config.GetImage(),
+		Target:   config.GetContainerPath(),
+		ReadOnly: config.GetReadonly(),
+		ImageOptions: &mount.ImageOptions{
+			Subpath: config.GetSubpath(),
+		},
+	}
+}
+
+func mkDeviceMount(config *api.DeviceMount) container.DeviceMapping {
+	return container.DeviceMapping{
+		PathOnHost:        config.GetHostPath(),
+		PathInContainer:   config.GetContainerPath(),
+		CgroupPermissions: config.GetPermissions(),
+	}
 }

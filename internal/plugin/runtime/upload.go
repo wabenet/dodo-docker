@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,7 +31,7 @@ func (c *ContainerRuntime) WriteFile(containerID string, path string, contents [
 			containerID,
 			"/",
 			reader,
-			types.CopyToContainerOptions{},
+			container.CopyToContainerOptions{},
 		)
 	})
 
