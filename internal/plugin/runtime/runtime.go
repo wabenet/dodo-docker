@@ -7,7 +7,6 @@ import (
 	cli "github.com/docker/cli/cli/command"
 	cliflags "github.com/docker/cli/cli/flags"
 	docker "github.com/docker/docker/client"
-	pluginapi "github.com/wabenet/dodo-core/api/plugin/v1alpha1"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 )
@@ -32,13 +31,8 @@ func (*ContainerRuntime) Type() plugin.Type {
 	return runtime.Type
 }
 
-func (c *ContainerRuntime) PluginInfo() *pluginapi.PluginInfo {
-	return &pluginapi.PluginInfo{
-		Name: &pluginapi.PluginName{
-			Name: name,
-			Type: runtime.Type.String(),
-		},
-	}
+func (c *ContainerRuntime) Metadata() plugin.Metadata {
+	return plugin.NewMetadata(runtime.Type, name)
 }
 
 func (c *ContainerRuntime) Init() (plugin.Config, error) {

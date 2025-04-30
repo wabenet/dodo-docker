@@ -2,18 +2,16 @@ package runtime
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
-	api "github.com/wabenet/dodo-core/api/runtime/v1alpha2"
+	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 	"golang.org/x/net/context"
 )
 
-func (c *ContainerRuntime) CreateContainer(config *api.ContainerConfig) (string, error) {
+func (c *ContainerRuntime) CreateContainer(config runtime.ContainerConfig) (string, error) {
 	client, err := c.ensureClient()
 	if err != nil {
 		return "", err
@@ -25,7 +23,7 @@ func (c *ContainerRuntime) CreateContainer(config *api.ContainerConfig) (string,
 		mkHostConfig(config),
 		mkNetworkingConfig(config),
 		nil,
-		config.GetName(),
+		config.Name,
 	)
 	if err != nil {
 		return "", fmt.Errorf("could not create container: %w", err)
@@ -34,34 +32,34 @@ func (c *ContainerRuntime) CreateContainer(config *api.ContainerConfig) (string,
 	return response.ID, nil
 }
 
-func mkContainerConfig(config *api.ContainerConfig) *container.Config {
+func mkContainerConfig(config runtime.ContainerConfig) *container.Config {
 	return &container.Config{
-		Image:        config.GetImage(),
-		AttachStdin:  config.GetTerminal().GetStdio(),
-		AttachStdout: config.GetTerminal().GetStdio(),
-		AttachStderr: config.GetTerminal().GetStdio(),
-		OpenStdin:    config.GetTerminal().GetStdio(),
-		StdinOnce:    config.GetTerminal().GetStdio(),
-		Tty:          config.GetTerminal().GetTty(),
-		User:         config.GetProcess().GetUser(),
-		WorkingDir:   config.GetProcess().GetWorkingDir(),
-		Cmd:          config.GetProcess().GetCommand(),
-		Entrypoint:   config.GetProcess().GetEntrypoint(),
+		Image:        config.Image,
+		AttachStdin:  config.Terminal.StdIO,
+		AttachStdout: config.Terminal.StdIO,
+		AttachStderr: config.Terminal.StdIO,
+		OpenStdin:    config.Terminal.StdIO,
+		StdinOnce:    config.Terminal.StdIO,
+		Tty:          config.Terminal.TTY,
+		User:         config.Process.User,
+		WorkingDir:   config.Process.WorkingDir,
+		Cmd:          []string(config.Process.Command),
+		Entrypoint:   []string(config.Process.Entrypoint),
 		Env:          mkEnvironment(config),
 		ExposedPorts: mkPortSet(config),
 	}
 }
 
-func mkHostConfig(config *api.ContainerConfig) *container.HostConfig {
+func mkHostConfig(config runtime.ContainerConfig) *container.HostConfig {
 	return &container.HostConfig{
 		AutoRemove: func() bool {
-			return config.GetTerminal().GetStdio()
+			return config.Terminal.StdIO
 		}(),
 		Mounts:        mkMounts(config),
 		PortBindings:  mkPortMap(config),
-		CapAdd:        config.GetCapabilities(),
+		CapAdd:        []string(config.Capabilities),
 		Init:          &[]bool{true}[0],
-		RestartPolicy: mkRestartPolicy(config.GetTerminal().GetStdio()),
+		RestartPolicy: mkRestartPolicy(config.Terminal.StdIO),
 		Resources: container.Resources{
 			Devices:           mkDevices(config),
 			DeviceCgroupRules: mkDeviceCgroupRules(config),
@@ -69,7 +67,7 @@ func mkHostConfig(config *api.ContainerConfig) *container.HostConfig {
 	}
 }
 
-func mkNetworkingConfig(_ *api.ContainerConfig) *network.NetworkingConfig {
+func mkNetworkingConfig(_ runtime.ContainerConfig) *network.NetworkingConfig {
 	return &network.NetworkingConfig{}
 }
 
@@ -81,42 +79,42 @@ func mkRestartPolicy(stdio bool) container.RestartPolicy {
 	return container.RestartPolicy{Name: "always"}
 }
 
-func mkPortMap(config *api.ContainerConfig) nat.PortMap {
+func mkPortMap(config runtime.ContainerConfig) nat.PortMap {
 	result := map[nat.Port][]nat.PortBinding{}
 
-	for _, port := range config.GetPorts() {
-		portSpec, _ := nat.NewPort(port.GetProtocol(), port.GetContainerPort())
-		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.GetHostPort()})
+	for _, port := range config.Ports {
+		portSpec, _ := nat.NewPort(port.Protocol, port.ContainerPort)
+		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.HostPort})
 	}
 
 	return result
 }
 
-func mkPortSet(config *api.ContainerConfig) nat.PortSet {
+func mkPortSet(config runtime.ContainerConfig) nat.PortSet {
 	result := map[nat.Port]struct{}{}
 
-	for _, port := range config.GetPorts() {
-		portSpec, _ := nat.NewPort(port.GetProtocol(), port.GetContainerPort())
+	for _, port := range config.Ports {
+		portSpec, _ := nat.NewPort(port.Protocol, port.ContainerPort)
 		result[portSpec] = struct{}{}
 	}
 
 	return result
 }
 
-func mkEnvironment(config *api.ContainerConfig) []string {
+func mkEnvironment(config runtime.ContainerConfig) []string {
 	result := []string{}
 
-	for _, kv := range config.GetEnvironment() {
-		result = append(result, fmt.Sprintf("%s=%s", kv.GetKey(), kv.GetValue()))
+	for _, kv := range config.Environment {
+		result = append(result, kv.String())
 	}
 
 	return result
 }
 
-func mkMounts(config *api.ContainerConfig) []mount.Mount {
+func mkMounts(config runtime.ContainerConfig) []mount.Mount {
 	result := []mount.Mount{}
 
-	for _, m := range config.GetMounts() {
+	for _, m := range config.Mounts {
 		if r, ok := mkMount(m); ok {
 			result = append(result, r)
 		}
@@ -125,17 +123,21 @@ func mkMounts(config *api.ContainerConfig) []mount.Mount {
 	return result
 }
 
-func mkMount(config *api.Mount) (mount.Mount, bool) {
-	switch m := config.GetType().(type) {
-	case *api.Mount_Bind:
-		return mkBindMount(m.Bind), true
-	case *api.Mount_Volume:
-		return mkVolumeMount(m.Volume), true
-	case *api.Mount_Tmpfs:
-		return mkTmpfsMount(m.Tmpfs), true
-	case *api.Mount_Image:
-		return mkImageMount(m.Image), true
-	case *api.Mount_Device:
+func mkMount(config runtime.Mount) (mount.Mount, bool) {
+	switch config.Type() {
+	case runtime.TypeBind:
+		m, _ := config.(runtime.BindMount)
+		return mkBindMount(m), true
+	case runtime.TypeVolume:
+		m, _ := config.(runtime.VolumeMount)
+		return mkVolumeMount(m), true
+	case runtime.TypeTmpfs:
+		m, _ := config.(runtime.TmpfsMount)
+		return mkTmpfsMount(m), true
+	case runtime.TypeImage:
+		m, _ := config.(runtime.ImageMount)
+		return mkImageMount(m), true
+	case runtime.TypeDevice:
 		// Device mounts don't support the Mount API yet
 		return mount.Mount{}, false
 	default:
@@ -143,10 +145,10 @@ func mkMount(config *api.Mount) (mount.Mount, bool) {
 	}
 }
 
-func mkDevices(config *api.ContainerConfig) []container.DeviceMapping {
+func mkDevices(config runtime.ContainerConfig) []container.DeviceMapping {
 	result := []container.DeviceMapping{}
 
-	for _, m := range config.GetMounts() {
+	for _, m := range config.Mounts {
 		if r, ok := mkDevice(m); ok {
 			result = append(result, r)
 		}
@@ -155,19 +157,20 @@ func mkDevices(config *api.ContainerConfig) []container.DeviceMapping {
 	return result
 }
 
-func mkDevice(config *api.Mount) (container.DeviceMapping, bool) {
-	switch m := config.GetType().(type) {
-	case *api.Mount_Device:
-		return mkDeviceMount(m.Device), true
+func mkDevice(config runtime.Mount) (container.DeviceMapping, bool) {
+	switch config.Type() {
+	case runtime.TypeDevice:
+		m, _ := config.(runtime.DeviceMount)
+		return mkDeviceMount(m), true
 	default:
 		return container.DeviceMapping{}, false
 	}
 }
 
-func mkDeviceCgroupRules(config *api.ContainerConfig) []string {
+func mkDeviceCgroupRules(config runtime.ContainerConfig) []string {
 	result := []string{}
 
-	for _, m := range config.GetMounts() {
+	for _, m := range config.Mounts {
 		if r, ok := mkDeviceCgroupRule(m); ok {
 			result = append(result, r)
 		}
@@ -176,11 +179,12 @@ func mkDeviceCgroupRules(config *api.ContainerConfig) []string {
 	return result
 }
 
-func mkDeviceCgroupRule(config *api.Mount) (string, bool) {
-	switch m := config.GetType().(type) {
-	case *api.Mount_Device:
-		if len(m.Device.GetCgroupRule()) > 0 {
-			return m.Device.GetCgroupRule(), true
+func mkDeviceCgroupRule(config runtime.Mount) (string, bool) {
+	switch config.Type() {
+	case runtime.TypeDevice:
+		m, _ := config.(runtime.DeviceMount)
+		if len(m.CGroupRule) > 0 {
+			return m.CGroupRule, true
 		} else {
 			return "", false
 		}
@@ -189,60 +193,57 @@ func mkDeviceCgroupRule(config *api.Mount) (string, bool) {
 	}
 }
 
-func mkBindMount(config *api.BindMount) mount.Mount {
+func mkBindMount(config runtime.BindMount) mount.Mount {
 	return mount.Mount{
 		Type:     mount.TypeBind,
-		Source:   config.GetHostPath(),
-		Target:   config.GetContainerPath(),
-		ReadOnly: config.GetReadonly(),
+		Source:   config.HostPath,
+		Target:   config.ContainerPath,
+		ReadOnly: config.Readonly,
 		BindOptions: &mount.BindOptions{
 			CreateMountpoint: true,
 		},
 	}
 }
 
-func mkVolumeMount(config *api.VolumeMount) mount.Mount {
+func mkVolumeMount(config runtime.VolumeMount) mount.Mount {
 	return mount.Mount{
 		Type:     mount.TypeVolume,
-		Source:   config.GetVolumeName(),
-		Target:   config.GetContainerPath(),
-		ReadOnly: config.GetReadonly(),
+		Source:   config.VolumeName,
+		Target:   config.ContainerPath,
+		ReadOnly: config.Readonly,
 		VolumeOptions: &mount.VolumeOptions{
-			Subpath: config.GetSubpath(),
+			Subpath: config.Subpath,
 		},
 	}
 }
 
-func mkTmpfsMount(config *api.TmpfsMount) mount.Mount {
-	mode, _ := strconv.ParseUint(config.GetMode(), 8, 32)
-	// TODO error handling
-
+func mkTmpfsMount(config runtime.TmpfsMount) mount.Mount {
 	return mount.Mount{
 		Type:   mount.TypeTmpfs,
-		Target: config.GetContainerPath(),
+		Target: config.ContainerPath,
 		TmpfsOptions: &mount.TmpfsOptions{
-			SizeBytes: config.GetSize(),
-			Mode:      os.FileMode(mode),
+			SizeBytes: int64(config.Size),
+			Mode:      config.Mode,
 		},
 	}
 }
 
-func mkImageMount(config *api.ImageMount) mount.Mount {
+func mkImageMount(config runtime.ImageMount) mount.Mount {
 	return mount.Mount{
 		Type:     mount.TypeImage,
-		Source:   config.GetImage(),
-		Target:   config.GetContainerPath(),
-		ReadOnly: config.GetReadonly(),
+		Source:   config.Image,
+		Target:   config.ContainerPath,
+		ReadOnly: config.Readonly,
 		ImageOptions: &mount.ImageOptions{
-			Subpath: config.GetSubpath(),
+			Subpath: config.Subpath,
 		},
 	}
 }
 
-func mkDeviceMount(config *api.DeviceMount) container.DeviceMapping {
+func mkDeviceMount(config runtime.DeviceMount) container.DeviceMapping {
 	return container.DeviceMapping{
-		PathOnHost:        config.GetHostPath(),
-		PathInContainer:   config.GetContainerPath(),
-		CgroupPermissions: config.GetPermissions(),
+		PathOnHost:        config.HostPath,
+		PathInContainer:   config.ContainerPath,
+		CgroupPermissions: config.Permissions,
 	}
 }
