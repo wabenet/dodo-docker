@@ -1,6 +1,6 @@
 backdrops:
   make:
-    image: wabenet/wabe-project-build:v0.3.7
+    image: wabenet/wabe-project-build:v0.3.11
     volumes:
       - "{{ projectRoot }}:/build"
       - "{{ projectRoot }}/.cache:/go/pkg/mod"
