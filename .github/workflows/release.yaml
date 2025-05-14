@@ -9,9 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: "wabenet/wabe-project-build:v0.3.10"
     steps:
-      - uses: wabenet/project-template/actions/build@v0.3.7
+      - uses: wabenet/project-template/actions/build@v0.3.10
         with:
-          go-version: "1.24"
           release: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
