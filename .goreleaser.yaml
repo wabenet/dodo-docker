@@ -7,14 +7,14 @@ before:
     - go generate ./...
 
 builds:
-  - id: plugin
+  - id: main
     main: ./cmd/dodo-docker
     env: ["CGO_ENABLED=0"]
     goos: [linux, darwin]
 
 archives:
-  - id: plugin
-    builds: [plugin]
+  - id: main
+    builds: [main]
     format: binary
     name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
 
