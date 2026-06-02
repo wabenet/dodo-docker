@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/docker/docker/api/types/container"
 	log "github.com/hashicorp/go-hclog"
+	"github.com/moby/moby/api/types/container"
+	moby "github.com/moby/moby/client"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 	"golang.org/x/sync/errgroup"
@@ -18,7 +19,12 @@ func (c *ContainerRuntime) StartContainer(id string) error {
 		return err
 	}
 
-	return client.ContainerStart(context.Background(), id, container.StartOptions{})
+	_, err = client.ContainerStart(context.Background(), id, moby.ContainerStartOptions{})
+	if err != nil {
+		return fmt.Errorf("could not start container: %w", err)
+	}
+
+	return nil
 }
 
 func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width uint32) (*runtime.Result, error) {
@@ -27,7 +33,13 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 		return nil, err
 	}
 
-	waitCh, errorCh := client.ContainerWait(context.Background(), id, container.WaitConditionRemoved)
+	res := client.ContainerWait(
+		context.Background(),
+		id,
+		moby.ContainerWaitOptions{
+			Condition: container.WaitConditionRemoved,
+		},
+	)
 
 	if err := c.StartContainer(id); err != nil {
 		return nil, fmt.Errorf("could not start container: %w", err)
@@ -40,13 +52,13 @@ func (c *ContainerRuntime) RunAndWaitContainer(id string, height uint32, width u
 	}
 
 	select {
-	case resp := <-waitCh:
+	case resp := <-res.Result:
 		if resp.Error != nil {
 			return nil, errors.New(resp.Error.Message)
 		}
 
 		return &runtime.Result{ExitCode: int(resp.StatusCode)}, nil
-	case err := <-errorCh:
+	case err := <-res.Error:
 		return nil, err
 	}
 }
@@ -87,12 +99,17 @@ func (c *ContainerRuntime) ResizeContainer(id string, height uint32, width uint3
 		return err
 	}
 
-	return client.ContainerResize(
+	_, err = client.ContainerResize(
 		context.Background(),
 		id,
-		container.ResizeOptions{
+		moby.ContainerResizeOptions{
 			Height: uint(height),
 			Width:  uint(width),
 		},
 	)
+	if err != nil {
+		return fmt.Errorf("could not resize container: %w", err)
+	}
+
+	return nil
 }

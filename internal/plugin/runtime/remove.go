@@ -1,10 +1,10 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types/container"
-	"golang.org/x/net/context"
+	moby "github.com/moby/moby/client"
 )
 
 func (c *ContainerRuntime) DeleteContainer(id string) error {
@@ -13,9 +13,15 @@ func (c *ContainerRuntime) DeleteContainer(id string) error {
 		return err
 	}
 
-	if err := client.ContainerStop(context.Background(), id, container.StopOptions{}); err != nil {
+	_, err = client.ContainerStop(context.Background(), id, moby.ContainerStopOptions{})
+	if err != nil {
 		return fmt.Errorf("could not stop container: %w", err)
 	}
 
-	return client.ContainerRemove(context.Background(), id, container.RemoveOptions{})
+	_, err = client.ContainerRemove(context.Background(), id, moby.ContainerRemoveOptions{})
+	if err != nil {
+		return fmt.Errorf("could not remove container: %w", err)
+	}
+
+	return nil
 }

@@ -1,14 +1,15 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
+	"strconv"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	moby "github.com/moby/moby/client"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
-	"golang.org/x/net/context"
 )
 
 func (c *ContainerRuntime) CreateContainer(config runtime.ContainerConfig) (string, error) {
@@ -19,11 +20,13 @@ func (c *ContainerRuntime) CreateContainer(config runtime.ContainerConfig) (stri
 
 	response, err := client.ContainerCreate(
 		context.Background(),
-		mkContainerConfig(config),
-		mkHostConfig(config),
-		mkNetworkingConfig(config),
-		nil,
-		config.Name,
+		moby.ContainerCreateOptions{
+			Config:           mkContainerConfig(config),
+			HostConfig:       mkHostConfig(config),
+			NetworkingConfig: mkNetworkingConfig(config),
+			Platform:         nil,
+			Name:             config.Name,
+		},
 	)
 	if err != nil {
 		return "", fmt.Errorf("could not create container: %w", err)
@@ -79,22 +82,22 @@ func mkRestartPolicy(stdio bool) container.RestartPolicy {
 	return container.RestartPolicy{Name: "always"}
 }
 
-func mkPortMap(config runtime.ContainerConfig) nat.PortMap {
-	result := map[nat.Port][]nat.PortBinding{}
+func mkPortMap(config runtime.ContainerConfig) network.PortMap {
+	result := map[network.Port][]network.PortBinding{}
 
 	for _, port := range config.Ports {
-		portSpec, _ := nat.NewPort(port.Protocol, port.ContainerPort)
-		result[portSpec] = append(result[portSpec], nat.PortBinding{HostPort: port.HostPort})
+		portSpec, _ := network.PortFrom(port.ContainerPort, network.IPProtocol(port.Protocol))
+		result[portSpec] = append(result[portSpec], network.PortBinding{HostPort: strconv.Itoa(int(port.HostPort))})
 	}
 
 	return result
 }
 
-func mkPortSet(config runtime.ContainerConfig) nat.PortSet {
-	result := map[nat.Port]struct{}{}
+func mkPortSet(config runtime.ContainerConfig) network.PortSet {
+	result := map[network.Port]struct{}{}
 
 	for _, port := range config.Ports {
-		portSpec, _ := nat.NewPort(port.Protocol, port.ContainerPort)
+		portSpec, _ := network.PortFrom(port.ContainerPort, network.IPProtocol(port.Protocol))
 		result[portSpec] = struct{}{}
 	}
 

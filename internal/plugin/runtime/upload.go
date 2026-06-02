@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/docker/api/types/container"
+	moby "github.com/moby/moby/client"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -26,13 +26,19 @@ func (c *ContainerRuntime) WriteFile(containerID string, path string, contents [
 			return err
 		}
 
-		return client.CopyToContainer(
+		_, err = client.CopyToContainer(
 			ctx,
 			containerID,
-			"/",
-			reader,
-			container.CopyToContainerOptions{},
+			moby.CopyToContainerOptions{
+				DestinationPath: "/",
+				Content:         reader,
+			},
 		)
+		if err != nil {
+			return fmt.Errorf("could not copy to container: %w", err)
+		}
+
+		return nil
 	})
 
 	eg.Go(func() error {

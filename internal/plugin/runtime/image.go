@@ -1,19 +1,19 @@
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/distribution/reference"
-	cli "github.com/docker/cli/cli/command"
-	"github.com/docker/docker/api/types/image"
-	registrytypes "github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/registry"
 	log "github.com/hashicorp/go-hclog"
-	"golang.org/x/net/context"
+	"github.com/moby/moby/api/pkg/authconfig"
+	"github.com/moby/moby/api/types/jsonstream"
+	"github.com/moby/moby/api/types/registry"
+	moby "github.com/moby/moby/client"
 )
 
 func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
@@ -29,7 +29,8 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		return "", err
 	}
 
-	if _, _, err := client.ImageInspectWithRaw(context.Background(), ref.String()); err == nil {
+	_, err = client.ImageInspect(context.Background(), ref.String())
+	if err == nil {
 		log.L().Debug("found image locally", "ref", ref.String())
 
 		return ref.String(), nil
@@ -44,18 +45,27 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 		parsed = reference.TagNameOnly(parsed)
 	}
 
-	repoInfo, err := registry.ParseRepositoryInfo(parsed)
-	if err != nil {
-		return "", fmt.Errorf("could not parse image name: %w", err)
+	// TODO: what?
+	configKey := reference.Domain(parsed)
+
+	if configKey == "index.docker.io" {
+		configKey = "docker.io"
 	}
 
-	dockerCLI, err := cli.NewDockerCli(cli.WithBaseContext(context.Background()))
-	if err != nil {
-		return "", fmt.Errorf("could not get docker config: %w", err)
+	if !strings.ContainsRune(reference.FamiliarName(parsed), '/') {
+		configKey = "https://index.docker.io/v1/"
 	}
 
-	authConfig := cli.ResolveAuthConfig(dockerCLI.ConfigFile(), repoInfo.Index)
-	encodedAuth, err := registrytypes.EncodeAuthConfig(authConfig)
+	auth, _ := c.config.GetAuthConfig(configKey)
+
+	encodedAuth, err := authconfig.Encode(registry.AuthConfig{
+		Username:      auth.Username,
+		Password:      auth.Password,
+		ServerAddress: auth.ServerAddress,
+		Auth:          auth.Auth,
+		IdentityToken: auth.IdentityToken,
+		RegistryToken: auth.RegistryToken,
+	})
 	if err != nil {
 		return "", fmt.Errorf("could not encode auth config: %w", err)
 	}
@@ -63,7 +73,7 @@ func (c *ContainerRuntime) ResolveImage(name string) (string, error) {
 	response, err := client.ImagePull(
 		context.Background(),
 		parsed.String(),
-		image.PullOptions{
+		moby.ImagePullOptions{
 			RegistryAuth: encodedAuth,
 		},
 	)
@@ -83,7 +93,7 @@ func streamPull(result io.Reader) error {
 	decoder := json.NewDecoder(result)
 
 	for {
-		var msg jsonmessage.JSONMessage
+		var msg jsonstream.Message
 		if err := decoder.Decode(&msg); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -96,7 +106,7 @@ func streamPull(result io.Reader) error {
 			return msg.Error
 		}
 
-		if msg.Progress != nil || msg.ProgressMessage != "" {
+		if msg.Progress != nil {
 			continue
 		}
 

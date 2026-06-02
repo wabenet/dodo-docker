@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/pkg/stdcopy"
 	log "github.com/hashicorp/go-hclog"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	moby "github.com/moby/moby/client"
 	"github.com/wabenet/dodo-core/pkg/ioutil"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 )
 
 type ContainerStream struct {
 	hasTTY bool
-	hijack types.HijackedResponse
+	hijack moby.HijackedResponse
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -34,15 +33,15 @@ func (c *ContainerRuntime) AttachContainer(
 		return nil, nil, err
 	}
 
-	config, err := client.ContainerInspect(ctx, id)
+	inspectResult, err := client.ContainerInspect(ctx, id, moby.ContainerInspectOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not inspect container: %w", err)
 	}
 
-	attach, err := client.ContainerAttach(
+	attachResult, err := client.ContainerAttach(
 		ctx,
 		id,
-		container.AttachOptions{
+		moby.ContainerAttachOptions{
 			Stream: true,
 			Stdin:  true,
 			Stdout: true,
@@ -58,8 +57,8 @@ func (c *ContainerRuntime) AttachContainer(
 	inReader := ioutil.NewCancelableReader(inContext, stream.Stdin)
 
 	return &ContainerStream{
-		hasTTY: config.Config.Tty,
-		hijack: attach,
+		hasTTY: inspectResult.Container.Config.Tty,
+		hijack: attachResult.HijackedResponse,
 		stdin:  inReader,
 		stdout: stream.Stdout,
 		stderr: stream.Stderr,

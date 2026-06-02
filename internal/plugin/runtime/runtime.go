@@ -3,27 +3,36 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"os"
 
-	cli "github.com/docker/cli/cli/command"
-	cliflags "github.com/docker/cli/cli/flags"
-	docker "github.com/docker/docker/client"
+	"github.com/docker/cli/cli/config"
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/context/docker"
+	"github.com/docker/cli/cli/context/store"
+	moby "github.com/moby/moby/client"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 )
 
-const name = "docker"
+const (
+	name = "docker"
+
+	defaultDockerContext = "default"
+	defaultDockerHost    = "unix:///var/run/docker.sock"
+)
 
 var _ runtime.ContainerRuntime = &ContainerRuntime{}
 
 type ContainerRuntime struct {
-	client docker.APIClient
+	client moby.APIClient
+	config *configfile.ConfigFile
 }
 
 func New() *ContainerRuntime {
 	return &ContainerRuntime{}
 }
 
-func NewFromClient(client docker.APIClient) *ContainerRuntime {
+func NewFromClient(client moby.APIClient) *ContainerRuntime {
 	return &ContainerRuntime{client: client}
 }
 
@@ -41,7 +50,7 @@ func (c *ContainerRuntime) Init() (plugin.Config, error) {
 		return nil, err
 	}
 
-	ping, err := client.Ping(context.Background())
+	ping, err := client.Ping(context.Background(), moby.PingOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not reach docker host: %w", err)
 	}
@@ -58,19 +67,105 @@ func (c *ContainerRuntime) Init() (plugin.Config, error) {
 
 func (*ContainerRuntime) Cleanup() {}
 
-func (c *ContainerRuntime) ensureClient() (docker.APIClient, error) {
+func (c *ContainerRuntime) ensureClient() (moby.APIClient, error) { //nolint:ireturn
 	if c.client == nil {
-		dockerCLI, err := cli.NewDockerCli(cli.WithBaseContext(context.Background()))
+		c.config = config.LoadDefaultConfigFile(nil)
+
+		endpoint, err := getDockerEndpoint(c.config)
 		if err != nil {
-			return nil, fmt.Errorf("could not get docker config: %w", err)
+			return nil, fmt.Errorf("could not get docker endpoint: %w", err)
 		}
 
-		if err := dockerCLI.Initialize(&cliflags.ClientOptions{}); err != nil {
-			return nil, fmt.Errorf("could not get docker config: %w", err)
+		opts, err := endpoint.ClientOpts()
+		if err != nil {
+			return nil, fmt.Errorf("could not get endpoint options: %w", err)
 		}
 
-		c.client = dockerCLI.Client()
+		client, err := moby.New(opts...)
+		if err != nil {
+			return nil, fmt.Errorf("could not create moby client: %w", err)
+		}
+
+		c.client = client
 	}
 
 	return c.client, nil
+}
+
+func getDockerEndpoint(configFile *configfile.ConfigFile) (docker.Endpoint, error) {
+	ctxName := getContextName(configFile)
+
+	if ctxName == defaultDockerContext {
+		return defaultDockerEndpoint()
+	}
+
+	return dockerEndpointFromContext(ctxName)
+}
+
+func getContextName(configFile *configfile.ConfigFile) string {
+	if os.Getenv(moby.EnvOverrideHost) != "" {
+		return defaultDockerContext
+	}
+
+	if ctxName := os.Getenv("DOCKER_CONTEXT"); ctxName != "" {
+		return ctxName
+	}
+
+	if configFile.CurrentContext != "" {
+		return configFile.CurrentContext
+	}
+
+	return defaultDockerContext
+}
+
+func defaultDockerEndpoint() (docker.Endpoint, error) {
+	endpoint := docker.Endpoint{
+		EndpointMeta: docker.EndpointMeta{
+			Host:          defaultDockerHost,
+			SkipTLSVerify: false,
+		},
+	}
+
+	if override := os.Getenv(moby.EnvOverrideHost); override != "" {
+		// The original Docker CLI uses a whole lot of logic to infer a valid endpoint from the env var,
+		// including lots of default values and so on.
+		// We are just assuming the user passes the endpoint in the correct format and hope for the best.
+		endpoint.Host = override
+	}
+
+	return endpoint, nil
+}
+
+func dockerEndpointFromContext(name string) (docker.Endpoint, error) {
+	ctxStore := store.New(
+		config.ContextStoreDir(),
+		store.NewConfig(
+			func() any { return &dockerContext{} },
+			[]store.NamedTypeGetter{
+				store.EndpointTypeGetter(docker.DockerEndpoint, func() any { return &docker.EndpointMeta{} }),
+			}...,
+		),
+	)
+
+	ctxMeta, err := ctxStore.GetMetadata(name)
+	if err != nil {
+		return docker.Endpoint{}, fmt.Errorf("could not get context metadata: %w", err)
+	}
+
+	epMeta, err := docker.EndpointFromContext(ctxMeta)
+	if err != nil {
+		return docker.Endpoint{}, fmt.Errorf("could not get endpoint from context: %w", err)
+	}
+
+	endpoint, err := docker.WithTLSData(ctxStore, name, epMeta)
+	if err != nil {
+		return docker.Endpoint{}, fmt.Errorf("could not create endpoint: %w", err)
+	}
+
+	return endpoint, nil
+}
+
+type dockerContext struct {
+	Description      string
+	AdditionalFields map[string]any
 }

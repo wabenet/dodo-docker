@@ -70,7 +70,8 @@ linters:
             - github.com/hashicorp
             - github.com/spf13/cobra
             - github.com/spf13/viper
-            - github.com/docker/docker
+            - github.com/moby/moby
+            - github.com/docker/cli
           deny:
             - pkg: reflect
               desc: Please don't use reflect package

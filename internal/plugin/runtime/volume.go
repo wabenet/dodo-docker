@@ -1,11 +1,31 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types/volume"
-	"golang.org/x/net/context"
+	moby "github.com/moby/moby/client"
 )
+
+func (c *ContainerRuntime) ListVolumes() ([]string, error) {
+	volumes := []string{}
+
+	client, err := c.ensureClient()
+	if err != nil {
+		return volumes, err
+	}
+
+	resp, err := client.VolumeList(context.Background(), moby.VolumeListOptions{})
+	if err != nil {
+		return volumes, fmt.Errorf("could not list volumes: %w", err)
+	}
+
+	for _, item := range resp.Items {
+		volumes = append(volumes, item.Name)
+	}
+
+	return volumes, nil
+}
 
 func (c *ContainerRuntime) CreateVolume(name string) error {
 	client, err := c.ensureClient()
@@ -15,7 +35,7 @@ func (c *ContainerRuntime) CreateVolume(name string) error {
 
 	if _, err := client.VolumeCreate(
 		context.Background(),
-		volume.CreateOptions{
+		moby.VolumeCreateOptions{
 			Name: name,
 		},
 	); err != nil {
@@ -31,7 +51,14 @@ func (c *ContainerRuntime) DeleteVolume(name string) error {
 		return err
 	}
 
-	if err := client.VolumeRemove(context.Background(), name, false); err != nil {
+	_, err = client.VolumeRemove(
+		context.Background(),
+		name,
+		moby.VolumeRemoveOptions{
+			Force: false,
+		},
+	)
+	if err != nil {
 		return fmt.Errorf("could not delete volume: %w", err)
 	}
 

@@ -1,10 +1,12 @@
 package runtime
 
 import (
+	"context"
+	"fmt"
 	"os"
 
+	moby "github.com/moby/moby/client"
 	"github.com/moby/sys/signal"
-	"golang.org/x/net/context"
 )
 
 func (c *ContainerRuntime) KillContainer(id string, sig os.Signal) error {
@@ -15,7 +17,13 @@ func (c *ContainerRuntime) KillContainer(id string, sig os.Signal) error {
 
 	for str, sigN := range signal.SignalMap {
 		if sigN == sig {
-			return client.ContainerKill(context.Background(), id, str)
+			_, err := client.ContainerKill(
+				context.Background(),
+				id,
+				moby.ContainerKillOptions{Signal: str},
+			)
+
+			return fmt.Errorf("could not kill container: %w", err)
 		}
 	}
 

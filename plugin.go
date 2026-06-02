@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"github.com/wabenet/dodo-core/pkg/plugin"
 	"github.com/wabenet/dodo-core/pkg/plugin/runtime"
 	impl "github.com/wabenet/dodo-docker/internal/plugin/runtime"
